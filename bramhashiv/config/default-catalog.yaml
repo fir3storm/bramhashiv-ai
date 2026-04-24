@@ -1,0 +1,84 @@
+# BramhaShiv AI default model catalog.
+# Scores are 0-10 (how strong this model is on this trait).
+# Edit freely; hot-reloaded on save.
+
+models:
+  - id: anthropic/claude-opus-4-7
+    provider: anthropic
+    scores:
+      long_context: 10
+      deep_reasoning: 10
+      tool_use_accuracy: 9
+      speed_priority: 4
+      frontend_taste: 8
+      cost_efficiency: 3
+
+  - id: anthropic/claude-sonnet-4-6
+    provider: anthropic
+    scores:
+      long_context: 9
+      deep_reasoning: 8
+      tool_use_accuracy: 9
+      speed_priority: 7
+      frontend_taste: 8
+      cost_efficiency: 6
+
+  - id: anthropic/claude-haiku-4-5
+    provider: anthropic
+    scores:
+      long_context: 7
+      deep_reasoning: 6
+      tool_use_accuracy: 8
+      speed_priority: 10
+      frontend_taste: 6
+      cost_efficiency: 9
+
+  - id: google/gemini-3-pro
+    provider: google
+    scores:
+      long_context: 10
+      deep_reasoning: 9
+      tool_use_accuracy: 7
+      speed_priority: 6
+      frontend_taste: 7
+      cost_efficiency: 7
+
+  - id: google/gemini-flash
+    provider: google
+    scores:
+      long_context: 8
+      deep_reasoning: 6
+      tool_use_accuracy: 6
+      speed_priority: 10
+      frontend_taste: 6
+      cost_efficiency: 10
+
+  - id: huggingface/moonshotai/Kimi-K2-Instruct
+    provider: huggingface
+    scores:
+      long_context: 10
+      deep_reasoning: 9
+      tool_use_accuracy: 9
+      speed_priority: 5
+      frontend_taste: 7
+      cost_efficiency: 10
+
+  - id: huggingface/Qwen/Qwen2.5-Coder-32B-Instruct
+    provider: huggingface
+    scores:
+      long_context: 6
+      deep_reasoning: 6
+      tool_use_accuracy: 6
+      speed_priority: 5
+      frontend_taste: 5
+      cost_efficiency: 10
+
+  - id: huggingface/deepseek-ai/DeepSeek-V3
+    provider: huggingface
+    scores:
+      long_context: 7
+      deep_reasoning: 7
+      tool_use_accuracy: 6
+      speed_priority: 4
+      frontend_taste: 5
+      cost_efficiency: 10
