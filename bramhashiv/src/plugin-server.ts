@@ -5,6 +5,7 @@ import { runRouterPipeline } from "./pipeline.js";
 import { createTelemetryLogger, type TelemetryLogger } from "./telemetry.js";
 import { readSharedState, writeSharedState } from "./shared-state.js";
 import { geminiFlashRunner } from "./gemini-runner.js";
+import { getGoogleApiKey } from "./opencode-auth.js";
 import {
   CATALOG_PATH,
   STATE_PATH,
@@ -96,9 +97,13 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
 }
 
 function resolveDefaultRunner(): CompletionRunner | null {
+  // Priority: explicit env var first (for CI / override), then reuse
+  // OpenCode's Google API key from auth.json so users don't need to set
+  // up a separate Gemini key.
   const apiKey =
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
     process.env.GEMINI_API_KEY ??
+    getGoogleApiKey() ??
     "";
   return apiKey ? geminiFlashRunner({ apiKey }) : null;
 }
