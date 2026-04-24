@@ -111,4 +111,4 @@ export const bramhashivServer: Plugin = createServerPlugin({
   ensureCatalog: ensureUserCatalog,
 });
 
-export default { server: bramhashivServer };
+export default { id: "bramhashiv", server: bramhashivServer };

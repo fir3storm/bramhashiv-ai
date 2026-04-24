@@ -1,8 +1,12 @@
 # BramhaShiv AI default model catalog.
 # Scores are 0-10 (how strong this model is on this trait).
 # Edit freely; hot-reloaded on save.
+#
+# Model IDs MUST match what OpenCode's `opencode models <provider>` lists.
+# If you add/rename a provider model, verify with that command first.
 
 models:
+  # ── Anthropic (requires `opencode providers login` for anthropic) ────────
   - id: anthropic/claude-opus-4-7
     provider: anthropic
     scores:
@@ -33,7 +37,8 @@ models:
       frontend_taste: 6
       cost_efficiency: 9
 
-  - id: google/gemini-3-pro
+  # ── Google (provider id: google) ─────────────────────────────────────────
+  - id: google/gemini-3-pro-preview
     provider: google
     scores:
       long_context: 10
@@ -43,7 +48,7 @@ models:
       frontend_taste: 7
       cost_efficiency: 7
 
-  - id: google/gemini-flash
+  - id: google/gemini-flash-latest
     provider: google
     scores:
       long_context: 8
@@ -53,7 +58,8 @@ models:
       frontend_taste: 6
       cost_efficiency: 10
 
-  - id: huggingface/moonshotai/Kimi-K2-Instruct
+  # ── Hugging Face (free inference tier) ───────────────────────────────────
+  - id: huggingface/moonshotai/Kimi-K2.6
     provider: huggingface
     scores:
       long_context: 10
@@ -63,17 +69,17 @@ models:
       frontend_taste: 7
       cost_efficiency: 10
 
-  - id: huggingface/Qwen/Qwen2.5-Coder-32B-Instruct
+  - id: huggingface/Qwen/Qwen3-Coder-480B-A35B-Instruct
     provider: huggingface
     scores:
-      long_context: 6
-      deep_reasoning: 6
-      tool_use_accuracy: 6
+      long_context: 7
+      deep_reasoning: 7
+      tool_use_accuracy: 7
       speed_priority: 5
       frontend_taste: 5
       cost_efficiency: 10
 
-  - id: huggingface/deepseek-ai/DeepSeek-V3
+  - id: huggingface/deepseek-ai/DeepSeek-V3.2
     provider: huggingface
     scores:
       long_context: 7
