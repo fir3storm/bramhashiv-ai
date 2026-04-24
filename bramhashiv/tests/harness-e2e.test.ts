@@ -93,7 +93,7 @@ describe("plugin server end-to-end harness", () => {
   test("state-file pin beats classifier", async () => {
     const paths = makeTempPaths();
     await writeSharedState(paths.statePath, {
-      pinned_model_id: "google/gemini-flash",
+      pinned_model_id: "google/gemini-flash-latest",
       last_label: null,
       last_classifier: null,
     });
@@ -112,7 +112,7 @@ describe("plugin server end-to-end harness", () => {
     await hooks["chat.message"]!({} as never, turn as never);
     expect(turn.message.model).toEqual({
       providerID: "google",
-      modelID: "gemini-flash",
+      modelID: "gemini-flash-latest",
     });
   });
 
