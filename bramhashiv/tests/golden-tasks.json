@@ -1,0 +1,102 @@
+[
+  {
+    "task": "Read this 40-file module and find why the rate limiter is dropping requests under load.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Quick one-liner: convert this array of numbers to their sum.",
+    "expected_top3": ["anthropic/claude-haiku-4-5", "google/gemini-flash", "anthropic/claude-sonnet-4-6"]
+  },
+  {
+    "task": "Refactor this file to use async/await instead of callbacks.",
+    "expected_top3": ["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Design a premium landing page with hero, features grid, pricing, testimonials.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro"]
+  },
+  {
+    "task": "Design an algorithm that computes the shortest path in a weighted DAG with negative edges.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Apply this rename across 30 files and run the test suite.",
+    "expected_top3": ["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Explain what this regex does.",
+    "expected_top3": ["anthropic/claude-haiku-4-5", "google/gemini-flash", "anthropic/claude-sonnet-4-6"]
+  },
+  {
+    "task": "Generate 50 boilerplate test scaffolds for the functions in lib/utils.",
+    "expected_top3": ["google/gemini-flash", "anthropic/claude-haiku-4-5", "huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"]
+  },
+  {
+    "task": "Build a responsive Tailwind dashboard with dark mode toggle, sidebar, and data cards.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro"]
+  },
+  {
+    "task": "Trace why this race condition happens in the queue consumer and propose a fix.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Rename getCwd to getCurrentWorkingDirectory everywhere in this repo.",
+    "expected_top3": ["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Write a CLI flag parser that accepts short + long options and subcommands.",
+    "expected_top3": ["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "What does this snippet print?",
+    "expected_top3": ["anthropic/claude-haiku-4-5", "google/gemini-flash", "anthropic/claude-sonnet-4-6"]
+  },
+  {
+    "task": "Implement Dijkstra's shortest path with a binary heap.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Format this JSON for me, quick.",
+    "expected_top3": ["google/gemini-flash", "anthropic/claude-haiku-4-5", "huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"]
+  },
+  {
+    "task": "Audit this service's error handling across the retry, timeout, and circuit breaker layers.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Make this button feel more premium — better spacing, shadow, hover.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro"]
+  },
+  {
+    "task": "Why is my TypeScript type inference failing here? Just explain.",
+    "expected_top3": ["anthropic/claude-haiku-4-5", "anthropic/claude-sonnet-4-6", "google/gemini-flash"]
+  },
+  {
+    "task": "Generate 100 stub functions matching this interface across the repo.",
+    "expected_top3": ["google/gemini-flash", "anthropic/claude-haiku-4-5", "huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"]
+  },
+  {
+    "task": "Refactor the auth module to use dependency injection across 12 files.",
+    "expected_top3": ["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Explain what this SQL migration does in plain English.",
+    "expected_top3": ["anthropic/claude-haiku-4-5", "google/gemini-flash", "anthropic/claude-sonnet-4-6"]
+  },
+  {
+    "task": "Architect a sharding strategy for our 10TB analytics table that supports hot + cold partitioning.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  },
+  {
+    "task": "Style this form nicely with good whitespace, focus rings, and error states.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro"]
+  },
+  {
+    "task": "Quickly rename this variable across the current file.",
+    "expected_top3": ["anthropic/claude-haiku-4-5", "google/gemini-flash", "anthropic/claude-sonnet-4-6"]
+  },
+  {
+    "task": "Debug this memory leak — heap snapshot shows leaks in the event listener layer across 15 modules.",
+    "expected_top3": ["anthropic/claude-opus-4-7", "google/gemini-3-pro", "huggingface/moonshotai/Kimi-K2-Instruct"]
+  }
+]
