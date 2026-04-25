@@ -1,8 +1,15 @@
 {
   "name": "bramhashiv",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Smart multi-provider coding router — plugin for OpenCode",
+  "author": "Abhirup Guha",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/fir3storm/bramhashiv-ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fir3storm/bramhashiv-ai.git"
+  },
   "main": "src/plugin-server.ts",
   "exports": {
     ".": "./src/plugin-server.ts",
