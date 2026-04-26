@@ -97,7 +97,8 @@ opencode providers login -p openrouter    # paste an OpenRouter API key from htt
 
 | Tier | Provider | Why it matters |
 |---|---|---|
-| 1 | **Anthropic Claude Max** | Subscription-backed, huge monthly bucket — biggest unused asset for most paying users. |
+| 1 | **OpenAI ChatGPT** (Plus / Team / Pro via OAuth) | Subscription-backed; access GPT-5.x family without an API key. 5h reset cycle. |
+| 1 | **Anthropic** (API key) | Pay-per-token but cheap (Sonnet ~$3/M input). Note: Claude Pro/Max subscriptions do NOT grant API access. |
 | 2 | **Google Gemini free** | ~1500 Flash + ~50 Pro requests/day, daily reset. |
 | 3 | **OpenRouter free** | ~200 req/day, daily reset. Aggregator: many models behind one key (Llama, DeepSeek-R1, Qwen, etc.). |
 | 4 | **HuggingFace free** | Monthly quota; resets 1st of each month. |

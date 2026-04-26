@@ -31,7 +31,7 @@ export interface HardFilters {
 
 export interface ModelEntry {
   id: string;
-  provider: "anthropic" | "google" | "huggingface" | "openrouter";
+  provider: "anthropic" | "google" | "huggingface" | "openrouter" | "openai";
   scores: TraitScores;
   hard_filters?: HardFilters;
 }
