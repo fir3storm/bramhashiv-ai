@@ -1,5 +1,35 @@
 node_modules/
 dist/
+
+# Logs (build, test, runtime)
 *.log
+overrides.log
+
+# Environment / secrets — never commit
 .env
-.env.local
+.env.*
+*.env
+.envrc
+secrets/
+*.pem
+*.key
+*.p12
+
+# Anything that smells like credentials
+auth.json
+credentials.json
+*credentials*
+*token*.json
+
+# Plugin runtime state (lives in ~/.config/bramhashiv/, but defensive)
+state.json
+catalog.yaml.local
+overrides.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
