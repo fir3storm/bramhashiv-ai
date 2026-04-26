@@ -27,36 +27,58 @@ const ACCOUNT_LEVEL_STATUSES = new Set([402]);
  */
 const MODEL_LEVEL_STATUSES = new Set([429, 503, 529]);
 
+/** TTL (ms) for "this model is rate-limited right now" — short, retry soon. */
+const MODEL_LEVEL_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * TTL (ms) for "this provider's account quota is exhausted" — longer, since
+ * HF resets monthly and account-billing issues take real time to fix.
+ */
+const ACCOUNT_LEVEL_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+export interface UnavailableSuggestion {
+  ids: string[];
+  ttlMs: number;
+}
+
+const NONE: UnavailableSuggestion = { ids: [], ttlMs: 0 };
+
 /**
  * Decide which model IDs should be added to the unavailable set in response
- * to a session.error event. Returns an array (possibly empty); callers add
- * each to their session-scoped unavailable Set.
+ * to a session.error event, plus how long to keep them blacklisted.
+ *
+ * Returned ttlMs is the maximum time a caller should respect the mark; once
+ * elapsed, the model can be retried.
  */
 export function modelsToMarkUnavailable(
   error: SessionErrorPayload,
   lastRoutedModelId: string | null,
   catalog: Catalog,
-): string[] {
+): UnavailableSuggestion {
   if (error.name === "ProviderAuthError") {
     const providerID = error.data?.providerID;
-    if (!providerID) return [];
-    return catalog.models.filter((m) => m.provider === providerID).map((m) => m.id);
+    if (!providerID) return NONE;
+    const ids = catalog.models.filter((m) => m.provider === providerID).map((m) => m.id);
+    if (ids.length === 0) return NONE;
+    return { ids, ttlMs: ACCOUNT_LEVEL_TTL_MS };
   }
 
   if (error.name === "APIError" || error.name === "ApiError") {
     const status = error.data?.statusCode;
-    if (status === undefined || !lastRoutedModelId) return [];
+    if (status === undefined || !lastRoutedModelId) return NONE;
 
     if (ACCOUNT_LEVEL_STATUSES.has(status)) {
       const providerID = lastRoutedModelId.split("/")[0];
-      if (!providerID) return [lastRoutedModelId];
-      return catalog.models.filter((m) => m.provider === providerID).map((m) => m.id);
+      if (!providerID) return { ids: [lastRoutedModelId], ttlMs: ACCOUNT_LEVEL_TTL_MS };
+      const ids = catalog.models.filter((m) => m.provider === providerID).map((m) => m.id);
+      if (ids.length === 0) return { ids: [lastRoutedModelId], ttlMs: ACCOUNT_LEVEL_TTL_MS };
+      return { ids, ttlMs: ACCOUNT_LEVEL_TTL_MS };
     }
 
     if (MODEL_LEVEL_STATUSES.has(status)) {
-      return [lastRoutedModelId];
+      return { ids: [lastRoutedModelId], ttlMs: MODEL_LEVEL_TTL_MS };
     }
   }
 
-  return [];
+  return NONE;
 }

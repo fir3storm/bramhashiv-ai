@@ -12,17 +12,21 @@ const catalog: Catalog = {
   ],
 };
 
+const HOUR_MS = 60 * 60 * 1000;
+const TWELVE_HOURS_MS = 12 * HOUR_MS;
+
 describe("modelsToMarkUnavailable", () => {
-  test("ProviderAuthError marks all models for that provider", () => {
+  test("ProviderAuthError marks all models for that provider with 12h TTL", () => {
     const result = modelsToMarkUnavailable(
       { name: "ProviderAuthError", data: { providerID: "anthropic", message: "no auth" } },
       null,
       catalog,
     );
-    expect(result.sort()).toEqual([
+    expect(result.ids.sort()).toEqual([
       "anthropic/claude-haiku-4-5",
       "anthropic/claude-opus-4-7",
     ]);
+    expect(result.ttlMs).toBe(TWELVE_HOURS_MS);
   });
 
   test("ProviderAuthError with unknown providerID is ignored", () => {
@@ -32,30 +36,30 @@ describe("modelsToMarkUnavailable", () => {
         null,
         catalog,
       ),
-    ).toEqual([]);
+    ).toEqual({ ids: [], ttlMs: 0 });
   });
 
-  test("APIError with 402 marks the last routed model", () => {
-    expect(
-      modelsToMarkUnavailable(
-        { name: "APIError", data: { statusCode: 402, message: "Payment Required" } },
-        "huggingface/moonshotai/Kimi-K2.6",
-        catalog,
-      ).sort(),
-    ).toEqual([
+  test("APIError with 402 (account quota) marks the whole provider with 12h TTL", () => {
+    const result = modelsToMarkUnavailable(
+      { name: "APIError", data: { statusCode: 402, message: "Payment Required" } },
+      "huggingface/moonshotai/Kimi-K2.6",
+      catalog,
+    );
+    expect(result.ids.sort()).toEqual([
       "huggingface/Qwen/Qwen3-Coder-Next",
       "huggingface/moonshotai/Kimi-K2.6",
     ].sort());
+    expect(result.ttlMs).toBe(TWELVE_HOURS_MS);
   });
 
-  test("APIError with 429 (rate limit) marks the last routed model", () => {
-    expect(
-      modelsToMarkUnavailable(
-        { name: "APIError", data: { statusCode: 429 } },
-        "google/gemini-flash-latest",
-        catalog,
-      ),
-    ).toEqual(["google/gemini-flash-latest"]);
+  test("APIError with 429 (rate limit) marks just the last model with 1h TTL", () => {
+    const result = modelsToMarkUnavailable(
+      { name: "APIError", data: { statusCode: 429 } },
+      "google/gemini-flash-latest",
+      catalog,
+    );
+    expect(result.ids).toEqual(["google/gemini-flash-latest"]);
+    expect(result.ttlMs).toBe(HOUR_MS);
   });
 
   test("APIError with 4xx that isn't a quota signal is ignored", () => {
@@ -65,7 +69,7 @@ describe("modelsToMarkUnavailable", () => {
         "google/gemini-flash-latest",
         catalog,
       ),
-    ).toEqual([]);
+    ).toEqual({ ids: [], ttlMs: 0 });
   });
 
   test("APIError without lastRoutedModelId is ignored", () => {
@@ -75,7 +79,7 @@ describe("modelsToMarkUnavailable", () => {
         null,
         catalog,
       ),
-    ).toEqual([]);
+    ).toEqual({ ids: [], ttlMs: 0 });
   });
 
   test("UnknownError / other error types are ignored", () => {
@@ -85,16 +89,16 @@ describe("modelsToMarkUnavailable", () => {
         "google/gemini-flash-latest",
         catalog,
       ),
-    ).toEqual([]);
+    ).toEqual({ ids: [], ttlMs: 0 });
   });
 
   test("Accepts ApiError as alternate casing (defensive)", () => {
-    expect(
-      modelsToMarkUnavailable(
-        { name: "ApiError", data: { statusCode: 503 } },
-        "huggingface/moonshotai/Kimi-K2.6",
-        catalog,
-      ),
-    ).toEqual(["huggingface/moonshotai/Kimi-K2.6"]);
+    const result = modelsToMarkUnavailable(
+      { name: "ApiError", data: { statusCode: 503 } },
+      "huggingface/moonshotai/Kimi-K2.6",
+      catalog,
+    );
+    expect(result.ids).toEqual(["huggingface/moonshotai/Kimi-K2.6"]);
+    expect(result.ttlMs).toBe(HOUR_MS);
   });
 });

@@ -98,6 +98,7 @@ describe("plugin server end-to-end harness", () => {
       pinned_model_id: "google/gemini-flash-latest",
       last_label: null,
       last_classifier: null,
+      unavailable: [],
     });
     const hooks = await activate(
       paths,

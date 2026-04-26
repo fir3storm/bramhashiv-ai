@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.5 — 2026-04-27
+
+Dogfood-polish release. Four real-world fixes caught while routing actual coding tasks through OpenCode TUI.
+
+### Changed
+- **Classifier timeout 4s → 8s.** Real Gemini Flash latency under TUI load was occasionally crossing 4s, dropping every classification into the fallback path. 8s gives the API headroom without making single-turn waits user-visible.
+- **Fallback weights tilted toward speed + cost-efficiency.** When the classifier fails (timeout, network, malformed JSON), neutral weights used to favor all-rounders like Kimi K2.6 and Opus, burning subscription quota or hitting depleted free tiers. New defaults bias toward fast/cheap models so fallback routing prefers Gemini Flash / GPT-mini / MiMo Flash. Fixes the "every fallback turn picks Kimi → 402" pattern caught during INSEC dogfooding.
+
+### Added
+- **Persistent unavailable set with TTL** (`v0.1.6` from roadmap, pulled forward). Models marked unavailable due to rate-limits, account-quota errors, or auth failures now persist across separate `opencode run` invocations via `~/.config/bramhashiv/state.json` (new `unavailable` field). Per-model rate limits (429/503/529) get a 1h TTL; account-level signals (402, ProviderAuthError) get 12h. On every turn, expired entries are pruned automatically.
+- **Hot auth reload** (`v0.1.7` from roadmap, pulled forward). The set of unauthed providers is now re-evaluated on **every** `chat.message` instead of once at activation. Run `opencode providers login -p anthropic` mid-session and your next prompt routes to Claude — no restart needed.
+- **`BRAMHASHIV_DEBUG=1` verbose mode** (`v0.1.8` from roadmap, pulled forward). When set, plugin emits structured debug lines to stderr: classifier weights + fallback flag, top-5 ranked models with scores, picked model + reason. Routes to `opencode --print-logs --log-level INFO`. Diagnostic gold for tuning catalog scores or filing bug reports.
+
+### Internal
+- `error-tracking.modelsToMarkUnavailable` now returns `{ ids, ttlMs }` so callers know how long to respect each mark.
+- `shared-state.SharedState` gains `unavailable: UnavailableMark[]` field. Backward-compatible: older state.json files without the field hydrate to `[]` cleanly.
+- New module `src/debug.ts` with no-op `dbg()` when env var unset.
+- Tests: 94/94 green (5 new tests for persistence + TTL pruning).
+
 ## 0.1.4 — 2026-04-27
 
 ### Fixed
