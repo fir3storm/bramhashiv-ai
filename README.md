@@ -147,6 +147,8 @@ See `docs/opencode-plugin-audit.md` for the OpenCode plugin API findings that sh
 
 Made by **Abhirup Guha**.
 
+🇮🇳 **Proudly created in India, by an Indian — open-sourced for the betterment of the AI future.**
+
 ## License
 
 Licensed under the [Apache License 2.0](./LICENSE). Copyright © 2026 Abhirup Guha.
