@@ -206,3 +206,59 @@ models:
       speed_priority: 5
       frontend_taste: 6
       cost_efficiency: 10
+
+  # ── OpenAI via ChatGPT OAuth (Plus / Team / Pro subscription) ────────────
+  # Auth is the OAuth flow you already completed; consumed quota counts
+  # against your subscription's 5h usage window. Lower cost_efficiency
+  # scores below mean these are reserved for tasks where they truly shine,
+  # so subscription quota lasts longer.
+
+  - id: openai/gpt-5.5
+    provider: openai
+    scores:
+      long_context: 10
+      deep_reasoning: 10
+      tool_use_accuracy: 8
+      speed_priority: 5
+      frontend_taste: 9
+      cost_efficiency: 3
+
+  - id: openai/gpt-5.5-fast
+    provider: openai
+    scores:
+      long_context: 9
+      deep_reasoning: 8
+      tool_use_accuracy: 7
+      speed_priority: 9
+      frontend_taste: 8
+      cost_efficiency: 5
+
+  - id: openai/gpt-5.4
+    provider: openai
+    scores:
+      long_context: 9
+      deep_reasoning: 9
+      tool_use_accuracy: 8
+      speed_priority: 6
+      frontend_taste: 8
+      cost_efficiency: 5
+
+  - id: openai/gpt-5.4-mini
+    provider: openai
+    scores:
+      long_context: 7
+      deep_reasoning: 6
+      tool_use_accuracy: 7
+      speed_priority: 10
+      frontend_taste: 6
+      cost_efficiency: 7
+
+  - id: openai/gpt-5.3-codex
+    provider: openai
+    scores:
+      long_context: 8
+      deep_reasoning: 8
+      tool_use_accuracy: 10
+      speed_priority: 6
+      frontend_taste: 6
+      cost_efficiency: 5

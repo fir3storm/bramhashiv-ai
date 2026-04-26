@@ -13,7 +13,7 @@
   },
   {
     "task": "Design a premium landing page with hero, features grid, pricing, testimonials.",
-    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview"]
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview", "openai/gpt-5.5", "openai/gpt-5.4"]
   },
   {
     "task": "Design an algorithm that computes the shortest path in a weighted DAG with negative edges.",
@@ -33,7 +33,7 @@
   },
   {
     "task": "Build a responsive Tailwind dashboard with dark mode toggle, sidebar, and data cards.",
-    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview"]
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview", "openai/gpt-5.5", "openai/gpt-5.4"]
   },
   {
     "task": "Trace why this race condition happens in the queue consumer and propose a fix.",
@@ -65,7 +65,7 @@
   },
   {
     "task": "Make this button feel more premium — better spacing, shadow, hover.",
-    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview"]
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview", "openai/gpt-5.5", "openai/gpt-5.4"]
   },
   {
     "task": "Why is my TypeScript type inference failing here? Just explain.",
@@ -89,7 +89,7 @@
   },
   {
     "task": "Style this form nicely with good whitespace, focus rings, and error states.",
-    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview"]
+    "expected_top3": ["anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "google/gemini-3-pro-preview", "openai/gpt-5.5", "openai/gpt-5.4"]
   },
   {
     "task": "Quickly rename this variable across the current file.",
