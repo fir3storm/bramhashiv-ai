@@ -110,6 +110,15 @@ If a model in your catalog isn't in OpenCode's list, dispatch will fail with `Pr
 3. Top-ranked model runs the task. If it's rate-limited or unavailable, the next-ranked model runs — logged to `~/.config/bramhashiv/overrides.log`.
 4. If you've pinned a model whose id differs from the auto-top choice, BramhaShiv logs the override event so you can review which tasks benefit from which model.
 
+### Availability filtering
+
+Two layers keep the router from picking models you can't reach:
+
+- **At activation** — providers missing from `~/.local/share/opencode/auth.json` (i.e. you haven't run `opencode providers login` for them) are dropped. No more `ProviderModelNotFoundError` or auth-not-configured failures.
+- **During the session** — when a dispatch fails with `ProviderAuthError` or an `APIError` with status 402/429/503/529, the offending model is added to the session's unavailable set. Next turns route around it. Useful when HF free quota depletes mid-session or a provider rate-limits you.
+
+Unavailable state is **per OpenCode process** — it resets when you restart. If you need it persistent, edit your catalog or use `BRAMHASHIV_PIN`.
+
 ---
 
 ## Development
