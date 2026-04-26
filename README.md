@@ -202,6 +202,10 @@ Made by **Abhirup Guha**.
 
 ---
 
+## 🔒 Security
+
+**Your credentials never touch this repo.** All API keys, OAuth tokens, and session data live in your home directory — `~/.local/share/opencode/auth.json` and `~/.config/bramhashiv/`. Cloning this repo gives you zero credentials; you must auth your own providers via `opencode providers login`. See [`SECURITY.md`](./SECURITY.md) for the full threat model and a credential scan you can run against any clone.
+
 ## 📜 License
 
 Licensed under the [**Apache License 2.0**](./LICENSE). Copyright © 2026 Abhirup Guha.
