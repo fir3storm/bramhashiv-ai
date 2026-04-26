@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>BramhaShiv AI — Social Preview (1200x630)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      background: #0a0a14;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      color: #f4f4f5;
+    }
+
+    /* The frame — exactly 1200x630 */
+    .card {
+      width: 1200px;
+      height: 630px;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at top right, rgba(255, 153, 51, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse at bottom left, rgba(19, 136, 8, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse at center, rgba(126, 231, 135, 0.04) 0%, transparent 60%),
+        linear-gradient(135deg, #0d1117 0%, #1a1a2e 50%, #16213e 100%);
+      border: 1px solid #2a2a3e;
+    }
+
+    /* Subtle grid pattern overlay */
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Top accent bar — India tricolor */
+    .tricolor {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #FF9933 0%, #FF9933 33.3%, #FFFFFF 33.3%, #FFFFFF 66.6%, #138808 66.6%, #138808 100%);
+    }
+
+    /* Content layout */
+    .content {
+      position: relative;
+      height: 100%;
+      padding: 64px 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .top {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #8ab4f8;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .brand .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #7ee787;
+      box-shadow: 0 0 12px #7ee787;
+    }
+
+    .title {
+      font-size: 96px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      margin-top: 12px;
+    }
+
+    .title .om {
+      font-size: 88px;
+      filter: drop-shadow(0 0 24px rgba(255, 153, 51, 0.4));
+    }
+
+    .subtitle {
+      font-size: 30px;
+      font-weight: 500;
+      color: #c9d1d9;
+      margin-top: 12px;
+      letter-spacing: -0.01em;
+    }
+
+    .value {
+      font-size: 22px;
+      font-weight: 400;
+      color: #8b949e;
+      margin-top: 20px;
+      line-height: 1.4;
+      max-width: 900px;
+    }
+
+    .value .accent {
+      color: #c9d1d9;
+      font-weight: 500;
+    }
+
+    /* CTA install command — terminal style */
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 28px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 26px;
+      font-weight: 600;
+      color: #7ee787;
+      width: fit-content;
+      margin-top: 28px;
+    }
+
+    .cta .prompt {
+      color: #6e7681;
+    }
+
+    /* Footer strip */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      color: #6e7681;
+      font-weight: 500;
+    }
+
+    .footer .meta {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .footer .meta .badge {
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid #30363d;
+      border-radius: 999px;
+      font-size: 14px;
+      color: #c9d1d9;
+    }
+
+    .footer .repo {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      color: #8ab4f8;
+      font-size: 18px;
+    }
+
+    /* Bottom-right India label */
+    .india {
+      position: absolute;
+      bottom: 32px;
+      right: 80px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #FF9933;
+    }
+
+    .india .flag {
+      font-size: 24px;
+    }
+
+    /* Print/screenshot helper — only show when zoomed out */
+    .help {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      max-width: 380px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 14px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      z-index: 100;
+    }
+    .help b { color: #7ee787; }
+    .help kbd {
+      background: #21262d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      border: 1px solid #30363d;
+    }
+    @media print { .help { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="tricolor"></div>
+    <div class="grid-overlay"></div>
+
+    <div class="content">
+      <div class="top">
+        <div class="brand">
+          <span class="dot"></span>
+          OpenCode Plugin · v0.1.3 live on npm
+        </div>
+
+        <h1 class="title">
+          <span class="om">🕉️</span>
+          BramhaShiv AI
+        </h1>
+
+        <div class="subtitle">
+          Smart AI router for OpenCode
+        </div>
+
+        <div class="value">
+          Auto-routes each coding task to the best of <span class="accent">19 models</span>
+          across <span class="accent">OpenAI · Claude · Gemini · HuggingFace · OpenRouter</span>.
+          Free-tier-first. Never run out of credits.
+        </div>
+
+        <div class="cta">
+          <span class="prompt">$</span>
+          <span>opencode plugin bramhashiv</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="meta">
+          <span class="badge">89 tests</span>
+          <span class="badge">Apache 2.0</span>
+          <span class="badge">TypeScript</span>
+        </div>
+        <div class="repo">github.com/fir3storm/bramhashiv-ai</div>
+      </div>
+    </div>
+
+    <div class="india">
+      <span class="flag">🇮🇳</span>
+      <span>Made in India</span>
+    </div>
+  </div>
+
+  <div class="help">
+    <b>📸 How to screenshot at 1200×630:</b><br />
+    1. Open Chrome DevTools (<kbd>F12</kbd>) → toggle device toolbar (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>).<br />
+    2. Set viewport to <b>1200 × 630</b>.<br />
+    3. Open command menu (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) → type <i>"Capture full size screenshot"</i> → Enter.<br />
+    4. PNG saved to Downloads — upload via <i>repo Settings → Social preview</i>.
+  </div>
+</body>
+</html>
