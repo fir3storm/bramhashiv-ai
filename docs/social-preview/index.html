@@ -183,15 +183,42 @@
       right: 80px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       font-size: 16px;
       font-weight: 600;
       color: #FF9933;
     }
 
+    /* CSS-rendered tricolor flag — looks identical on any system, no emoji font needed */
     .india .flag {
-      font-size: 24px;
+      width: 30px;
+      height: 20px;
+      border-radius: 2px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+      display: flex;
+      flex-direction: column;
     }
+    .india .flag .stripe {
+      flex: 1;
+    }
+    .india .flag .saffron { background: #FF9933; }
+    .india .flag .white {
+      background: #FFFFFF;
+      position: relative;
+    }
+    .india .flag .white::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      border: 1px solid #000080;
+    }
+    .india .flag .green { background: #138808; }
 
     /* Print/screenshot helper — only show when zoomed out */
     .help {
@@ -264,7 +291,11 @@
     </div>
 
     <div class="india">
-      <span class="flag">🇮🇳</span>
+      <span class="flag">
+        <span class="stripe saffron"></span>
+        <span class="stripe white"></span>
+        <span class="stripe green"></span>
+      </span>
       <span>Made in India</span>
     </div>
   </div>
