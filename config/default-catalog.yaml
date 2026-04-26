@@ -88,3 +88,67 @@ models:
       speed_priority: 4
       frontend_taste: 5
       cost_efficiency: 10
+
+  # ── Reasoning specialists (slower, strong on hard analysis) ──────────────
+  - id: huggingface/deepseek-ai/DeepSeek-R1-0528
+    provider: huggingface
+    scores:
+      long_context: 8
+      deep_reasoning: 10
+      tool_use_accuracy: 7
+      speed_priority: 3
+      frontend_taste: 5
+      cost_efficiency: 10
+
+  - id: huggingface/moonshotai/Kimi-K2-Thinking
+    provider: huggingface
+    scores:
+      long_context: 9
+      deep_reasoning: 10
+      tool_use_accuracy: 8
+      speed_priority: 4
+      frontend_taste: 6
+      cost_efficiency: 10
+
+  - id: huggingface/Qwen/Qwen3-Next-80B-A3B-Thinking
+    provider: huggingface
+    scores:
+      long_context: 8
+      deep_reasoning: 9
+      tool_use_accuracy: 7
+      speed_priority: 5
+      frontend_taste: 5
+      cost_efficiency: 10
+
+  # ── Coding specialist (newer Qwen Coder line) ──────────────────────────
+  - id: huggingface/Qwen/Qwen3-Coder-Next
+    provider: huggingface
+    scores:
+      long_context: 8
+      deep_reasoning: 7
+      tool_use_accuracy: 9
+      speed_priority: 5
+      frontend_taste: 5
+      cost_efficiency: 10
+
+  # ── General all-rounder ─────────────────────────────────────────────────
+  - id: huggingface/zai-org/GLM-4.7
+    provider: huggingface
+    scores:
+      long_context: 8
+      deep_reasoning: 8
+      tool_use_accuracy: 7
+      speed_priority: 6
+      frontend_taste: 6
+      cost_efficiency: 10
+
+  # ── Speed-focused (small MoE) ───────────────────────────────────────────
+  - id: huggingface/XiaomiMiMo/MiMo-V2-Flash
+    provider: huggingface
+    scores:
+      long_context: 6
+      deep_reasoning: 5
+      tool_use_accuracy: 6
+      speed_priority: 9
+      frontend_taste: 5
+      cost_efficiency: 10
