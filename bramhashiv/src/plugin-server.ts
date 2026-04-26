@@ -5,7 +5,7 @@ import { runRouterPipeline } from "./pipeline.js";
 import { createTelemetryLogger, type TelemetryLogger } from "./telemetry.js";
 import { readSharedState, writeSharedState } from "./shared-state.js";
 import { geminiFlashRunner } from "./gemini-runner.js";
-import { getGoogleApiKey } from "./opencode-auth.js";
+import { getGoogleApiKey, getAuthedProviders } from "./opencode-auth.js";
 import {
   CATALOG_PATH,
   STATE_PATH,
@@ -19,6 +19,8 @@ export interface ServerPluginConfig {
   telemetryPath: string;
   runner: CompletionRunner | null;
   ensureCatalog: () => void;
+  /** Snapshot of authed provider IDs (e.g. {"google", "huggingface"}). */
+  authedProviders: () => Set<string>;
 }
 
 export function createServerPlugin(config: ServerPluginConfig): Plugin {
@@ -33,6 +35,20 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
     }
     const telemetry: TelemetryLogger = createTelemetryLogger(config.telemetryPath);
     const unavailable = new Set<string>();
+
+    // Initial unavailable set: any catalog model whose provider isn't in
+    // OpenCode's auth.json is unreachable, so skip routing to it. Note this
+    // is a one-shot snapshot at activation — a user who runs
+    // `opencode providers login` mid-session must restart for it to take
+    // effect. v1.2 may re-poll on each turn.
+    {
+      const authed = config.authedProviders();
+      for (const model of watcher.current().models) {
+        if (!authed.has(model.provider)) {
+          unavailable.add(model.id);
+        }
+      }
+    }
 
     return {
       "chat.message": async (_hookInput, hookOutput) => {
@@ -114,6 +130,7 @@ export const bramhashivServer: Plugin = createServerPlugin({
   telemetryPath: TELEMETRY_PATH,
   runner: resolveDefaultRunner(),
   ensureCatalog: ensureUserCatalog,
+  authedProviders: () => getAuthedProviders(),
 });
 
 export default { id: "bramhashiv", server: bramhashivServer };
