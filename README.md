@@ -82,6 +82,28 @@ export GEMINI_API_KEY=<your-key>
 
 Without any key, BramhaShiv falls back to neutral weights (still routes, but less informed).
 
+### 🔐 Provider auth (one-time, per provider)
+
+BramhaShiv only routes to providers OpenCode has credentials for. Run each you want:
+
+```bash
+opencode providers login -p anthropic     # OAuth — uses your Claude Max subscription
+opencode providers login -p google        # paste a Gemini API key from https://ai.google.dev
+opencode providers login -p huggingface   # paste an HF read token from https://huggingface.co/settings/tokens
+opencode providers login -p openrouter    # paste an OpenRouter API key from https://openrouter.ai/keys
+```
+
+**Stacking strategy** (so you effectively never run out of credits):
+
+| Tier | Provider | Why it matters |
+|---|---|---|
+| 1 | **Anthropic Claude Max** | Subscription-backed, huge monthly bucket — biggest unused asset for most paying users. |
+| 2 | **Google Gemini free** | ~1500 Flash + ~50 Pro requests/day, daily reset. |
+| 3 | **OpenRouter free** | ~200 req/day, daily reset. Aggregator: many models behind one key (Llama, DeepSeek-R1, Qwen, etc.). |
+| 4 | **HuggingFace free** | Monthly quota; resets 1st of each month. |
+
+Each tier has an **independent quota** on a different reset cycle — three or four pools is enough redundancy that you rarely hit a wall during normal use. The router auto-skips providers without credentials and any model that returns 402/429/503/529 mid-session.
+
 ---
 
 ## 💻 Usage

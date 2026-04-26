@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import chokidar from "chokidar";
 import { TRAIT_NAMES, type Catalog, type ModelEntry, type TraitName } from "./types.js";
 
-const ALLOWED_PROVIDERS = ["anthropic", "google", "huggingface"] as const;
+const ALLOWED_PROVIDERS = ["anthropic", "google", "huggingface", "openrouter"] as const;
 
 export function validateCatalog(cat: unknown): asserts cat is Catalog {
   if (!cat || typeof cat !== "object" || !("models" in cat)) {
