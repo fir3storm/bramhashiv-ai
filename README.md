@@ -7,9 +7,10 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Tests](https://img.shields.io/badge/tests-89%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
+[![OpenCode](https://img.shields.io/badge/OpenCode-1.14.24-orange)](https://github.com/sst/opencode)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-FF9933?labelColor=138808)](#-author)
 
-*Classifies each coding task with Gemini Flash and routes it to the best-fit model from your catalog — Claude, Gemini, or free HuggingFace models.*
+*Classifies each coding task with Gemini Flash and routes it to the best-fit model from a 19-model catalog spanning OpenAI (GPT-5.x via ChatGPT OAuth), Google (Gemini), Anthropic (Claude), HuggingFace, and OpenRouter.*
 
 </div>
 
@@ -140,7 +141,9 @@ Open `~/.config/bramhashiv/catalog.yaml` and adjust any model's scores (0–10 p
 Verify model IDs against OpenCode's actual list:
 
 ```bash
+opencode models openai
 opencode models google
+opencode models openrouter
 opencode models huggingface
 opencode models anthropic
 ```
