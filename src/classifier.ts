@@ -12,15 +12,21 @@ export interface ClassifyOptions {
   timeoutMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 4000;
+const DEFAULT_TIMEOUT_MS = 8000;
 
+/**
+ * Used when the Gemini classifier call fails. Tilted toward speed +
+ * moderate cost-efficiency so fallback routing prefers a fast cheap model
+ * (Flash, gpt-mini) over a deep all-rounder (Opus, Kimi). Mirrors
+ * pipeline.NEUTRAL_WEIGHTS — kept in sync intentionally.
+ */
 const FALLBACK_WEIGHTS: TraitWeights = {
-  long_context: 0.5,
-  deep_reasoning: 0.7,
-  tool_use_accuracy: 0.7,
-  speed_priority: 0.3,
-  frontend_taste: 0.3,
-  cost_efficiency: 0.4,
+  long_context: 0.2,
+  deep_reasoning: 0.4,
+  tool_use_accuracy: 0.4,
+  speed_priority: 0.8,
+  frontend_taste: 0.2,
+  cost_efficiency: 0.5,
 };
 
 function clamp01(n: number): number {

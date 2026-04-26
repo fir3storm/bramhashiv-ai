@@ -62,3 +62,14 @@ export interface RouteDecision {
 export interface OverrideState {
   pinned_model_id: string | null;
 }
+
+/**
+ * One entry per model temporarily marked unavailable due to a runtime
+ * error (rate limit, quota exhausted, auth failure). Persisted in
+ * state.json so blacklist survives across `opencode run` invocations.
+ */
+export interface UnavailableMark {
+  id: string;
+  expiresAt: number;
+}
+

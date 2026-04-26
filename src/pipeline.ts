@@ -15,13 +15,20 @@ export interface PipelineResult {
   classifier: ClassifierResult;
 }
 
+/**
+ * Used when the classifier fails or no runner is configured.
+ * Tilted toward speed + moderate cost-efficiency: when we don't know what
+ * the task is, prefer a fast cheap model to a deep all-rounder. Keeps
+ * subscription quota safe and prevents the catalog's all-rounders (Kimi,
+ * Opus) from auto-winning every fallback turn. Mirrors classifier.FALLBACK_WEIGHTS.
+ */
 const NEUTRAL_WEIGHTS: TraitWeights = {
-  long_context: 0.5,
-  deep_reasoning: 0.7,
-  tool_use_accuracy: 0.7,
-  speed_priority: 0.3,
-  frontend_taste: 0.3,
-  cost_efficiency: 0.4,
+  long_context: 0.2,
+  deep_reasoning: 0.4,
+  tool_use_accuracy: 0.4,
+  speed_priority: 0.8,
+  frontend_taste: 0.2,
+  cost_efficiency: 0.5,
 };
 
 function neutralClassifier(): ClassifierResult {
