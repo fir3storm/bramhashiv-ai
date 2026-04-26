@@ -20,7 +20,7 @@ Name comes from **Brahma** (Hindu god of creation) + **Shiva** (architect / form
 
 **v1.1+ roadmap:** TUI plugin with `/model` dialog picker + `/route` debug command, OpenAI/GPT-5 via Codex CLI subprocess, auto-detect provider availability so unauthed/depleted models drop out of routing automatically.
 
-See `docs/opencode-plugin-audit.md` for the findings that shaped this split.
+See `docs/opencode-plugin-audit.md` for the OpenCode plugin API findings that shaped this split.
 
 ---
 
@@ -28,7 +28,7 @@ See `docs/opencode-plugin-audit.md` for the findings that shaped this split.
 
 ```bash
 git clone https://github.com/fir3storm/bramhashiv-ai.git
-cd bramhashiv-ai/bramhashiv
+cd bramhashiv-ai
 bun install
 ```
 
@@ -38,7 +38,7 @@ Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    "file:///absolute/path/to/bramhashiv-ai/bramhashiv/src/plugin-server.ts"
+    "file:///absolute/path/to/bramhashiv-ai/src/plugin-server.ts"
   ]
 }
 ```
@@ -139,7 +139,7 @@ BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
 - Auto-tune catalog weights from override telemetry.
 - Shared community catalog registry.
 
-See `../docs/superpowers/specs/2026-04-23-bramhashiv-ai-design.md` for the original design spec and full v2 backlog.
+See `docs/opencode-plugin-audit.md` for the OpenCode plugin API findings that shaped v1's architecture.
 
 ---
 
