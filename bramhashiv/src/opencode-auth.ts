@@ -37,3 +37,27 @@ export function getGoogleApiKey(path?: string): string | null {
   if (!entry || entry.type !== "api") return null;
   return typeof entry.key === "string" && entry.key.length > 0 ? entry.key : null;
 }
+
+/**
+ * Returns the set of provider IDs that have credentials in OpenCode's auth.
+ * "api" entries require a non-empty key; "oauth" entries are accepted by presence
+ * (the refresh/access tokens themselves live inside the entry but we don't validate
+ * their freshness here — OpenCode handles that at dispatch time).
+ */
+export function getAuthedProviders(path?: string): Set<string> {
+  const auth = readOpenCodeAuth(path);
+  const out = new Set<string>();
+  for (const [provider, entry] of Object.entries(auth)) {
+    if (!entry || typeof entry !== "object") continue;
+    if (entry.type === "api") {
+      if (typeof entry.key === "string" && entry.key.length > 0) out.add(provider);
+    } else if (entry.type === "oauth") {
+      out.add(provider);
+    } else {
+      // Unknown auth type — be conservative and assume authed so the user
+      // doesn't get silently locked out by an OpenCode auth schema change.
+      out.add(provider);
+    }
+  }
+  return out;
+}

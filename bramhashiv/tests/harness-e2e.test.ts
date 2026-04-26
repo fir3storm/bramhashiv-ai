@@ -54,11 +54,13 @@ function fakeUserTurn(text: string) {
 async function activate(
   paths: ReturnType<typeof makeTempPaths>,
   runner: CompletionRunner | null,
+  authed: Set<string> = new Set(["anthropic", "google", "huggingface"]),
 ) {
   const factory = createServerPlugin({
     ...paths,
     runner,
     ensureCatalog: () => {},
+    authedProviders: () => authed,
   });
   return factory({} as never);
 }
@@ -133,6 +135,43 @@ describe("plugin server end-to-end harness", () => {
     const turn = fakeUserTurn("anything");
     await hooks["chat.message"]!({} as never, turn as never);
     expect(turn.message.model.providerID).not.toBe("placeholder");
+  });
+
+  test("skips unauthed providers — Anthropic-heavy classifier still routes to authed model", async () => {
+    const paths = makeTempPaths();
+    // Classifier weights that would normally rank Opus/Sonnet at top.
+    const opusFavoring = mockRunner({
+      long_context: 0.95,
+      deep_reasoning: 0.95,
+      tool_use_accuracy: 0.9,
+      speed_priority: 0.1,
+      frontend_taste: 0.6,
+      cost_efficiency: 0.05,
+    });
+    const hooks = await activate(paths, opusFavoring, new Set(["google", "huggingface"]));
+    const turn = fakeUserTurn("Audit this 40-file payments service for race conditions");
+    await hooks["chat.message"]!({} as never, turn as never);
+    expect(turn.message.model.providerID).not.toBe("anthropic");
+    expect(turn.message.model.providerID).not.toBe("placeholder");
+  });
+
+  test("when only google is authed, every routed model is google", async () => {
+    const paths = makeTempPaths();
+    const hooks = await activate(
+      paths,
+      mockRunner({
+        long_context: 0.5,
+        deep_reasoning: 0.5,
+        tool_use_accuracy: 0.5,
+        speed_priority: 0.5,
+        frontend_taste: 0.5,
+        cost_efficiency: 0.5,
+      }),
+      new Set(["google"]),
+    );
+    const turn = fakeUserTurn("anything goes here");
+    await hooks["chat.message"]!({} as never, turn as never);
+    expect(turn.message.model.providerID).toBe("google");
   });
 
   test("empty text + no pin → no-op (model unchanged)", async () => {
