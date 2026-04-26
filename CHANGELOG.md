@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 — 2026-04-27
+
+### Fixed
+- **402 errors now mark the entire provider unavailable**, not just the failing model. Previously, a HuggingFace `Payment Required` (free quota depleted) would only blacklist the specific model — so the router would walk the catalog hitting `Kimi-K2.6 → 402 → Kimi-K2-Thinking → 402 → Qwen → 402 …` until every HF model had failed individually. Now a single 402 from any HF model takes the whole provider out of rotation for the rest of the session, since 402 is an account-level signal. 429/503/529 (per-model rate limits) keep their model-only behavior.
+
+### Spotted while dogfooding
+- TUI sessions sometimes hit the classifier timeout under load → fall back to neutral weights → Kimi wins the score battle (high all-around catalog scores). Tracked for v0.1.5 (likely a higher classifier timeout + anti-Kimi tilt in the fallback weights).
+
 ## 0.1.3 — 2026-04-26
 
 ### Added

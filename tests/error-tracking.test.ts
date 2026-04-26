@@ -8,6 +8,7 @@ const catalog: Catalog = {
     { id: "anthropic/claude-haiku-4-5", provider: "anthropic", scores: { long_context: 7, deep_reasoning: 6, tool_use_accuracy: 8, speed_priority: 10, frontend_taste: 6, cost_efficiency: 9 } },
     { id: "google/gemini-flash-latest", provider: "google", scores: { long_context: 8, deep_reasoning: 6, tool_use_accuracy: 6, speed_priority: 10, frontend_taste: 6, cost_efficiency: 10 } },
     { id: "huggingface/moonshotai/Kimi-K2.6", provider: "huggingface", scores: { long_context: 10, deep_reasoning: 9, tool_use_accuracy: 9, speed_priority: 5, frontend_taste: 7, cost_efficiency: 10 } },
+    { id: "huggingface/Qwen/Qwen3-Coder-Next", provider: "huggingface", scores: { long_context: 8, deep_reasoning: 7, tool_use_accuracy: 9, speed_priority: 5, frontend_taste: 5, cost_efficiency: 10 } },
   ],
 };
 
@@ -40,8 +41,11 @@ describe("modelsToMarkUnavailable", () => {
         { name: "APIError", data: { statusCode: 402, message: "Payment Required" } },
         "huggingface/moonshotai/Kimi-K2.6",
         catalog,
-      ),
-    ).toEqual(["huggingface/moonshotai/Kimi-K2.6"]);
+      ).sort(),
+    ).toEqual([
+      "huggingface/Qwen/Qwen3-Coder-Next",
+      "huggingface/moonshotai/Kimi-K2.6",
+    ].sort());
   });
 
   test("APIError with 429 (rate limit) marks the last routed model", () => {
