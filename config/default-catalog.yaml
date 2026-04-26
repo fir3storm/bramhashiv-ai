@@ -152,3 +152,57 @@ models:
       speed_priority: 9
       frontend_taste: 5
       cost_efficiency: 10
+
+  # ── OpenRouter free tier (~200 req/day, daily reset) ─────────────────────
+  # Set up: `opencode providers login -p openrouter` and paste a key from
+  # https://openrouter.ai/keys (free signup; some models gated by acct limits).
+
+  - id: openrouter/meta-llama/llama-3.3-70b-instruct:free
+    provider: openrouter
+    scores:
+      long_context: 7
+      deep_reasoning: 7
+      tool_use_accuracy: 7
+      speed_priority: 6
+      frontend_taste: 6
+      cost_efficiency: 10
+
+  - id: openrouter/qwen/qwen-2.5-coder-32b-instruct:free
+    provider: openrouter
+    scores:
+      long_context: 7
+      deep_reasoning: 6
+      tool_use_accuracy: 8
+      speed_priority: 6
+      frontend_taste: 5
+      cost_efficiency: 10
+
+  - id: openrouter/deepseek/deepseek-r1:free
+    provider: openrouter
+    scores:
+      long_context: 8
+      deep_reasoning: 10
+      tool_use_accuracy: 7
+      speed_priority: 3
+      frontend_taste: 5
+      cost_efficiency: 10
+
+  - id: openrouter/google/gemini-2.0-flash-exp:free
+    provider: openrouter
+    scores:
+      long_context: 8
+      deep_reasoning: 6
+      tool_use_accuracy: 6
+      speed_priority: 9
+      frontend_taste: 6
+      cost_efficiency: 10
+
+  - id: openrouter/nousresearch/hermes-3-llama-3.1-405b:free
+    provider: openrouter
+    scores:
+      long_context: 8
+      deep_reasoning: 8
+      tool_use_accuracy: 7
+      speed_priority: 5
+      frontend_taste: 6
+      cost_efficiency: 10
