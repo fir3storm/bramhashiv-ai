@@ -6,6 +6,7 @@ import { createTelemetryLogger, type TelemetryLogger } from "./telemetry.js";
 import { readSharedState, writeSharedState } from "./shared-state.js";
 import { geminiFlashRunner } from "./gemini-runner.js";
 import { getGoogleApiKey, getAuthedProviders } from "./opencode-auth.js";
+import { modelsToMarkUnavailable, type SessionErrorPayload } from "./error-tracking.js";
 import {
   CATALOG_PATH,
   STATE_PATH,
@@ -35,6 +36,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
     }
     const telemetry: TelemetryLogger = createTelemetryLogger(config.telemetryPath);
     const unavailable = new Set<string>();
+    let lastRoutedModelId: string | null = null;
 
     // Initial unavailable set: any catalog model whose provider isn't in
     // OpenCode's auth.json is unreachable, so skip routing to it. Note this
@@ -77,6 +79,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
           const modelID = parts.slice(1).join("/");
           if (providerID && modelID) {
             hookOutput.message.model = { providerID, modelID };
+            lastRoutedModelId = decision.picked.id;
           }
 
           const label = `${decision.picked.id} (${decision.top_traits.join(" · ")})`;
@@ -106,6 +109,18 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
           }
         } catch (err) {
           console.error("[bramhashiv] chat.message hook error:", err);
+        }
+      },
+      event: async ({ event }) => {
+        if (event.type !== "session.error") return;
+        const error = event.properties.error as SessionErrorPayload | undefined;
+        if (!error) return;
+        const toMark = modelsToMarkUnavailable(error, lastRoutedModelId, watcher.current());
+        for (const id of toMark) {
+          if (!unavailable.has(id)) {
+            unavailable.add(id);
+            console.error(`[bramhashiv] marking ${id} unavailable for this session (${error.name})`);
+          }
         }
       },
     };
