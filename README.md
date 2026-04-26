@@ -4,6 +4,8 @@
 
 ### Smart multi-provider coding router for [OpenCode](https://github.com/sst/opencode)
 
+[![npm version](https://img.shields.io/npm/v/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
+[![npm downloads](https://img.shields.io/npm/dm/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Tests](https://img.shields.io/badge/tests-89%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
@@ -42,10 +44,21 @@ See [`docs/opencode-plugin-audit.md`](./docs/opencode-plugin-audit.md) for the O
 
 ## 🚀 Install
 
+### One-liner (recommended)
+
 ```bash
-git clone https://github.com/fir3storm/bramhashiv-ai.git
-cd bramhashiv-ai
-bun install
+opencode plugin bramhashiv
+```
+
+OpenCode pulls the package from npm and auto-registers it in your global config. Done.
+
+### Manual via npm
+
+```bash
+# pick your favourite — bun, npm, pnpm, yarn all work
+bun add bramhashiv
+npm install bramhashiv
+pnpm add bramhashiv
 ```
 
 Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
@@ -53,21 +66,42 @@ Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": ["bramhashiv"]
+}
+```
+
+### From source (development / contributing)
+
+```bash
+git clone https://github.com/fir3storm/bramhashiv-ai.git
+cd bramhashiv-ai
+bun install
+bun test          # 89 tests
+```
+
+Point OpenCode at your local clone:
+
+```jsonc
+{
   "plugin": [
     "file:///absolute/path/to/bramhashiv-ai/src/plugin-server.ts"
   ]
 }
 ```
 
+### First-run behavior
+
 On first activation, BramhaShiv copies `config/default-catalog.yaml` to `~/.config/bramhashiv/catalog.yaml` — edit freely, hot-reloaded on save.
 
-✅ Verify with:
+✅ Verify the plugin loaded:
 
 ```bash
 opencode debug config --print-logs --log-level INFO
 ```
 
-You should see `service=plugin path=...bramhashiv... loading plugin`.
+You should see `service=plugin name=bramhashiv loading plugin` (or `path=...bramhashiv...` for source installs).
+
+📦 **Package on npm:** [npmjs.com/package/bramhashiv](https://www.npmjs.com/package/bramhashiv)
 
 ### 🔑 Classifier API key
 
