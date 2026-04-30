@@ -1,5 +1,5 @@
 import { TRAIT_NAMES, type Catalog, type ClassifierResult, type ModelEntry, type OverrideState, type RouteDecision, type TraitName } from "./types.js";
-import { scoreAndRank } from "./scorer.js";
+import { scoreAndRank, type ScoringContext } from "./scorer.js";
 
 const SAFE_DEFAULT_ID = "anthropic/claude-sonnet-4-6";
 
@@ -8,6 +8,7 @@ export interface DecideRouteInput {
   classifier: ClassifierResult;
   override: OverrideState;
   unavailable: Set<string>;
+  scoringCtx?: ScoringContext;
 }
 
 function topTwoTraits(weights: ClassifierResult["weights"]): TraitName[] {
@@ -21,8 +22,8 @@ function findById(catalog: Catalog, id: string): ModelEntry | undefined {
 }
 
 export function decideRoute(input: DecideRouteInput): RouteDecision {
-  const { catalog, classifier, override, unavailable } = input;
-  const ranking = scoreAndRank(catalog, classifier.weights);
+  const { catalog, classifier, override, unavailable, scoringCtx } = input;
+  const ranking = scoreAndRank(catalog, classifier.weights, scoringCtx);
   const top_traits = topTwoTraits(classifier.weights);
 
   if (override.pinned_model_id) {

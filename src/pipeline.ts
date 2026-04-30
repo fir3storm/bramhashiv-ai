@@ -1,6 +1,7 @@
 import { classify, type CompletionRunner } from "./classifier.js";
 import { decideRoute } from "./router.js";
 import type { Catalog, ClassifierResult, RouteDecision, TraitWeights } from "./types.js";
+import type { ScoringContext } from "./scorer.js";
 
 export interface PipelineInput {
   text: string;
@@ -8,6 +9,8 @@ export interface PipelineInput {
   pinnedModelId: string | null;
   unavailable: Set<string>;
   runner: CompletionRunner | null;
+  workspaceSummary?: string;
+  scoringCtx?: ScoringContext;
 }
 
 export interface PipelineResult {
@@ -39,13 +42,17 @@ export async function runRouterPipeline(input: PipelineInput): Promise<PipelineR
   const classifier: ClassifierResult =
     input.pinnedModelId || !input.runner
       ? neutralClassifier()
-      : await classify(input.text, { runCompletion: input.runner });
+      : await classify(input.text, {
+          runCompletion: input.runner,
+          workspaceSummary: input.workspaceSummary,
+        });
 
   const decision = decideRoute({
     catalog: input.catalog,
     classifier,
     override: { pinned_model_id: input.pinnedModelId },
     unavailable: input.unavailable,
+    scoringCtx: input.scoringCtx,
   });
 
   return { decision, classifier };

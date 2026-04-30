@@ -1,12 +1,23 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { ClassifierResult, UnavailableMark } from "./types.js";
+import type {
+  ClassifierResult,
+  UnavailableMark,
+  ScoreAdjustment,
+  TaskOutcome,
+  RegenerationRecord,
+  HealthRecord,
+} from "./types.js";
 
 export interface SharedState {
   pinned_model_id: string | null;
   last_label: string | null;
   last_classifier: ClassifierResult | null;
   unavailable: UnavailableMark[];
+  learned_adjustments: ScoreAdjustment[];
+  task_history: TaskOutcome[];
+  regeneration_records: RegenerationRecord[];
+  provider_health: HealthRecord[];
 }
 
 export const EMPTY_STATE: SharedState = {
@@ -14,6 +25,10 @@ export const EMPTY_STATE: SharedState = {
   last_label: null,
   last_classifier: null,
   unavailable: [],
+  learned_adjustments: [],
+  task_history: [],
+  regeneration_records: [],
+  provider_health: [],
 };
 
 export async function readSharedState(path: string): Promise<SharedState> {
@@ -24,6 +39,10 @@ export async function readSharedState(path: string): Promise<SharedState> {
       ...EMPTY_STATE,
       ...parsed,
       unavailable: Array.isArray(parsed.unavailable) ? parsed.unavailable : [],
+      learned_adjustments: Array.isArray(parsed.learned_adjustments) ? parsed.learned_adjustments : [],
+      task_history: Array.isArray(parsed.task_history) ? parsed.task_history : [],
+      regeneration_records: Array.isArray(parsed.regeneration_records) ? parsed.regeneration_records : [],
+      provider_health: Array.isArray(parsed.provider_health) ? parsed.provider_health : [],
     };
   } catch {
     return { ...EMPTY_STATE, unavailable: [] };

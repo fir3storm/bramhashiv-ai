@@ -99,6 +99,10 @@ describe("plugin server end-to-end harness", () => {
       last_label: null,
       last_classifier: null,
       unavailable: [],
+      learned_adjustments: [],
+      task_history: [],
+      regeneration_records: [],
+      provider_health: [],
     });
     const hooks = await activate(
       paths,
