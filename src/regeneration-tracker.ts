@@ -1,8 +1,5 @@
 import type { RegenerationRecord } from "./types.js";
-
-const MAX_RECORDS = 100;
-const SIMILARITY_THRESHOLD = 0.7;
-const REGENERATION_TTL_MS = 60 * 60 * 1000;
+import { regeneration as cfg } from "./config.js";
 
 function jaccardSimilarity(a: string, b: string): number {
   const wordsA = new Set(a.toLowerCase().split(/\s+/).filter(Boolean));
@@ -25,9 +22,9 @@ function findSimilarTask(
 ): RegenerationRecord | undefined {
   for (const r of records) {
     if (r.model_id !== modelId) continue;
-    if (Date.now() - r.last_seen > REGENERATION_TTL_MS) continue;
+    if (Date.now() - r.last_seen > cfg.ttl_ms) continue;
     const sim = jaccardSimilarity(r.task_excerpt, taskExcerpt);
-    if (sim >= SIMILARITY_THRESHOLD) return r;
+    if (sim >= cfg.similarity_threshold) return r;
   }
   return undefined;
 }
@@ -61,8 +58,8 @@ export function recordRegenerationHit(
 
 function pruneRecords(records: RegenerationRecord[]): RegenerationRecord[] {
   const now = Date.now();
-  const active = records.filter((r) => now - r.last_seen <= REGENERATION_TTL_MS);
-  return active.slice(0, MAX_RECORDS);
+  const active = records.filter((r) => now - r.last_seen <= cfg.ttl_ms);
+  return active.slice(0, cfg.max_records);
 }
 
 export function getRegenerationPenalty(
@@ -73,10 +70,10 @@ export function getRegenerationPenalty(
   const existing = findSimilarTask(records, taskExcerpt, modelId);
   if (!existing) return 0;
 
-  if (existing.count >= 4) return 0.3;
-  if (existing.count >= 3) return 0.2;
-  if (existing.count >= 2) return 0.1;
-  return 0.05;
+  if (existing.count >= 4) return cfg.penalty_stage4;
+  if (existing.count >= 3) return cfg.penalty_stage3;
+  if (existing.count >= 2) return cfg.penalty_stage2;
+  return cfg.penalty_stage1;
 }
 
 export function getRegenerationCount(

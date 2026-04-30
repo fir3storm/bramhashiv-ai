@@ -1,5 +1,6 @@
 import { TRAIT_NAMES, type ClassifierResult, type TraitName, type TraitWeights } from "./types.js";
 import { CLASSIFIER_SYSTEM_PROMPT, buildClassifierUserPrompt } from "./classifier-prompt.js";
+import { classifier as cfg } from "./config.js";
 
 export type CompletionRunner = (args: {
   systemPrompt: string;
@@ -13,14 +14,6 @@ export interface ClassifyOptions {
   workspaceSummary?: string;
 }
 
-const DEFAULT_TIMEOUT_MS = 8000;
-
-/**
- * Used when the Gemini classifier call fails. Tilted toward speed +
- * moderate cost-efficiency so fallback routing prefers a fast cheap model
- * (Flash, gpt-mini) over a deep all-rounder (Opus, Kimi). Mirrors
- * pipeline.NEUTRAL_WEIGHTS — kept in sync intentionally.
- */
 const FALLBACK_WEIGHTS: TraitWeights = {
   long_context: 0.2,
   deep_reasoning: 0.4,
@@ -70,7 +63,7 @@ export async function classify(
   task: string,
   opts: ClassifyOptions,
 ): Promise<ClassifierResult> {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = opts.timeoutMs ?? cfg.timeout_ms;
   const userPrompt = buildClassifierUserPrompt(task, opts.conversationSnippet, opts.workspaceSummary);
 
   let raw: string;

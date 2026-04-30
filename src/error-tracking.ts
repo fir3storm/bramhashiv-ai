@@ -1,4 +1,5 @@
 import type { Catalog } from "./types.js";
+import { errorTracking as cfg } from "./config.js";
 
 /**
  * Subset of OpenCode session.error event payload we care about.
@@ -27,14 +28,8 @@ const ACCOUNT_LEVEL_STATUSES = new Set([402]);
  */
 const MODEL_LEVEL_STATUSES = new Set([429, 503, 529]);
 
-/** TTL (ms) for "this model is rate-limited right now" — short, retry soon. */
-const MODEL_LEVEL_TTL_MS = 60 * 60 * 1000; // 1 hour
-
-/**
- * TTL (ms) for "this provider's account quota is exhausted" — longer, since
- * HF resets monthly and account-billing issues take real time to fix.
- */
-const ACCOUNT_LEVEL_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const MODEL_LEVEL_TTL_MS = cfg.model_ttl_ms;
+const ACCOUNT_LEVEL_TTL_MS = cfg.account_ttl_ms;
 
 export interface UnavailableSuggestion {
   ids: string[];

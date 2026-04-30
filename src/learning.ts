@@ -1,16 +1,12 @@
 import { TRAIT_NAMES, type ScoreAdjustment, type TaskOutcome, type TraitName } from "./types.js";
-
-const MAX_HISTORY = 200;
-const ADJUSTMENT_LEARNING_RATE = 0.05;
-const ADJUSTMENT_DECAY = 0.99;
-const ADJUSTMENT_CAP = 2.0;
+import { learning as cfg } from "./config.js";
 
 export function recordTaskOutcome(
   history: TaskOutcome[],
   outcome: TaskOutcome,
 ): TaskOutcome[] {
   const updated = [outcome, ...history];
-  return updated.slice(0, MAX_HISTORY);
+  return updated.slice(0, cfg.max_history);
 }
 
 function traitDeltasForOutcome(outcome: TaskOutcome): Partial<Record<TraitName, number>> {
@@ -42,7 +38,7 @@ export function updateAdjustments(
   outcome: TaskOutcome,
 ): ScoreAdjustment[] {
   const deltas = traitDeltasForOutcome(outcome);
-  const result = adjustments.map((a) => ({ ...a, delta: a.delta * ADJUSTMENT_DECAY }));
+  const result = adjustments.map((a) => ({ ...a, delta: a.delta * cfg.decay }));
 
   for (const trait of TRAIT_NAMES) {
     const delta = deltas[trait] ?? 0;
@@ -56,13 +52,13 @@ export function updateAdjustments(
       result[idx] = {
         model_id: existing.model_id,
         trait: existing.trait,
-        delta: clamp(existing.delta + delta * ADJUSTMENT_LEARNING_RATE, -ADJUSTMENT_CAP, ADJUSTMENT_CAP),
+        delta: clamp(existing.delta + delta * cfg.learning_rate, -cfg.cap, cfg.cap),
       };
     } else {
       result.push({
         model_id: outcome.model_id,
         trait: trait as TraitName,
-        delta: clamp(delta * ADJUSTMENT_LEARNING_RATE, -ADJUSTMENT_CAP, ADJUSTMENT_CAP),
+        delta: clamp(delta * cfg.learning_rate, -cfg.cap, cfg.cap),
       });
     }
   }

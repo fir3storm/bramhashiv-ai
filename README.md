@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![npm downloads](https://img.shields.io/npm/dm/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-89%20passing-brightgreen)](./tests)
+[![Tests](https://img.shields.io/badge/tests-185%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
 [![OpenCode](https://img.shields.io/badge/OpenCode-1.14.24-orange)](https://github.com/sst/opencode)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-FF9933?labelColor=138808)](#-author)
@@ -34,9 +34,9 @@
 
 ## 📦 Scope
 
-**v1 (this release):** server plugin for OpenCode's `chat.message` hook, trait-based routing, user-editable YAML catalog, env-var override, local override telemetry, auto-filter of unauthed/depleted providers. Auto-routing reuses OpenCode's existing Google API key — zero extra setup.
+**v0.2 (current):** 5-layer adaptive routing — trait-based routing + workspace-aware classification + closed-loop learning + task decomposition planner + regeneration intelligence + provider health monitoring. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
 
-**v1.1+ roadmap:** TUI plugin with `/model` dialog picker + `/route` debug command, OpenAI/GPT-5 via Codex CLI subprocess, persistent unavailable-set with TTL.
+**v1.0+ roadmap:** TUI plugin with `/model` dialog picker + `/route` debug command, shared catalog registry, confidence prompts.
 
 See [`docs/opencode-plugin-audit.md`](./docs/opencode-plugin-audit.md) for the OpenCode plugin API findings that shaped v1's architecture.
 
@@ -188,10 +188,16 @@ If a model in your catalog isn't in OpenCode's list, dispatch will fail with `Pr
 
 ## 🧠 How routing works
 
-1. **Classify** — Gemini Flash reads your task and outputs six trait weights in `0..1`.
-2. **Score** — each catalog model is scored: `score = Σ weight × model.score`. Hard filters (e.g. `min_context`) prune unsuitable models when the corresponding trait weight is high.
-3. **Dispatch** — top-ranked model runs the task. If rate-limited or unavailable, the next-ranked model runs — logged to `~/.config/bramhashiv/overrides.log`.
-4. **Learn** — if you've pinned a model whose id differs from the auto-top choice, BramhaShiv logs the override so you can review which tasks benefit from which model.
+BramhaShiv operates in 5 layers, each improving routing accuracy:
+
+1. **Workspace analysis** — On activation, scans your project (up to 500 files) to detect languages, frontend/backend presence, tests, and git repo. Injected into all classification prompts for project-aware routing.
+2. **Classify** — Gemini Flash reads your task + workspace summary and outputs six trait weights in `0..1`.
+3. **Score** — Each catalog model is dot-product scored against the trait weights, then adjusted by three real-time signals:
+   - **Provider health:** models with high error rates or slow latency get score penalties (up to 25%).
+   - **Regeneration intelligence:** if you've regenerated this same task before, the previous model's score is penalized (escalating 5%→30%).
+   - **Learned adjustments:** accumulated deltas from past task outcomes auto-tune the catalog base scores over time.
+4. **Dispatch** — Top-ranked model runs the task. If rate-limited or unavailable, falls back through the ranking.
+5. **Learn** — On task completion, the outcome (success, latency, regenerations) feeds back into the learning system and health monitor for future routing decisions.
 
 ### 🛡️ Availability filtering
 
@@ -204,11 +210,45 @@ Unavailable state is **per OpenCode process** — it resets when you restart. If
 
 ---
 
+## 🔧 Configuration
+
+All tunable hyperparameters have sensible defaults and can be overridden via environment variables:
+
+```bash
+# Learning system
+BRAMHASHIV_LEARNING_RATE=0.05       # how fast scores adjust per outcome (0-1)
+BRAMHASHIV_LEARNING_DECAY=0.99      # decay factor for past adjustments
+BRAMHASHIV_LEARNING_CAP=2.0         # max absolute adjustment per model+trait
+
+# Health monitoring
+BRAMHASHIV_HEALTH_DECAY=0.7         # EMA alpha for latency averaging
+BRAMHASHIV_HEALTH_LATENCY_BASELINE=30000  # ms considered "slow"
+
+# Regeneration tracking
+BRAMHASHIV_SIMILARITY_THRESHOLD=0.7 # Jaccard threshold for task matching
+BRAMHASHIV_REGENERATION_TTL_MS=3600000  # how long to remember regenerations
+
+# Planner
+BRAMHASHIV_PLANNER_TIMEOUT_MS=10000 # max time for task decomposition
+BRAMHASHIV_COMPLEXITY_THRESHOLD=3   # heuristic score to trigger planning
+
+# Classifier
+BRAMHASHIV_CLASSIFIER_TIMEOUT_MS=8000  # Gemini Flash max wait
+
+# Error tracking
+BRAMHASHIV_ERROR_TTL_MODEL_MS=3600000   # per-model rate-limit TTL
+BRAMHASHIV_ERROR_TTL_ACCOUNT_MS=43200000 # account-level quota TTL
+
+# Workspace scanner
+BRAMHASHIV_MAX_FILES_SCAN=500      # max files to scan for workspace analysis
+BRAMHASHIV_MAX_DEPTH_SCAN=4        # max directory depth
+```
+
 ## 🔧 Development
 
 ```bash
 bun install
-bun test            # 89 unit + harness + golden-set tests
+bun test            # 185 unit + harness + golden-set tests
 bun run typecheck
 BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
 ```
@@ -217,10 +257,10 @@ BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
 
 ## 🛣️ v2 Roadmap
 
-- 🤖 **Subagents** — nested routing through the same router.
+- 🤖 **Multi-turn orchestration** — executing planner sub-tasks sequentially with different models.
 - ❓ **Confidence prompts** — confirm with user when classifier is uncertain.
-- 📈 **Auto-tune** catalog weights from override telemetry.
-- 🌐 **Shared catalog registry** so users can share well-tuned configs.
+- 🌐 **Shared catalog registry** — community-tuned configs for different tech stacks.
+- 📊 **Learning dashboard** — `/stats` command showing model performance over time.
 
 ---
 
