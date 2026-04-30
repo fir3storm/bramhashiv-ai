@@ -1,6 +1,7 @@
 import { readdirSync, statSync, readFileSync, existsSync } from "node:fs";
 import { join, basename, extname } from "node:path";
 import type { WorkspaceContext } from "./types.js";
+import { workspace as cfg } from "./config.js";
 
 const LANGUAGE_MAP: Record<string, string> = {
   ".ts": "TypeScript",
@@ -56,15 +57,12 @@ const SKIP_DIRS = new Set([
   "target", "vendor", ".browser-sessions", ".code-review-graph",
 ]);
 
-const MAX_FILES = 500;
-const MAX_DEPTH = 4;
-
 function scanDir(
   dir: string,
   stats: { languages: Record<string, number>; total_files: number; has_tests: boolean },
   depth: number = 0,
 ): void {
-  if (depth > MAX_DEPTH || stats.total_files >= MAX_FILES) return;
+  if (depth > cfg.max_depth || stats.total_files >= cfg.max_files) return;
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -72,7 +70,7 @@ function scanDir(
     return;
   }
   for (const entry of entries) {
-    if (stats.total_files >= MAX_FILES) return;
+    if (stats.total_files >= cfg.max_files) return;
     const full = join(dir, entry);
     let st;
     try {

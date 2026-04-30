@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0 — 2026-04-30
+
+Major intelligence upgrade. Five new adaptive routing layers make BramhaShiv self-tuning.
+
+### Added
+- **Closed-loop learning** (`src/learning.ts`). Every completed task feeds back into the model catalog via EMA-decayed score adjustments. Fast successes boost `speed_priority` + `tool_use_accuracy` for the winning model; failures + regenerations penalize `deep_reasoning` + `tool_use_accuracy`. Deltas are capped at ±2.0 and decay at 0.99 per outcome. Persisted in `state.json` → `learned_adjustments`. Over time, the catalog auto-tunes to your real usage patterns without manual intervention.
+- **Task decomposition planner** (`src/planner.ts` + `src/planner-prompt.ts`). Gemini Flash analyzes complex tasks (3+ concerns, heuristic score ≥ 3) and decomposes them into sub-task pipelines with per-subtask trait weights. The planner prompt describes the workspace context and outputs a JSON plan. Falls back gracefully to normal single-model routing on timeout/parse-failure. Complex tasks are ~50% of real-world coding sessions.
+- **Workspace-aware classification** (`src/workspace.ts`). On activation, scans up to 500 files (depth 4) to detect language distribution, frontend/backend presence, test files, and git repo. The summary is injected into both the classifier prompt ("this is a TypeScript frontend with tests") and the planner prompt. Project context makes classification more accurate — a "refactor this module" request in a Python backend routes differently than in a React frontend.
+- **Regeneration intelligence** (`src/regeneration-tracker.ts`). Uses Jaccard similarity (threshold 0.7) to detect when the user re-sends the same task. Escalating penalties: 0.05 → 0.1 → 0.2 → 0.3 applied to the model's score after 1/2/3/4+ regenerations on the same task. Prevents the router from stubbornly re-picking a model that's clearly not delivering.
+- **Provider health monitoring** (`src/health-monitor.ts`). Tracks per-model latency (EMA with α=0.7), error rate, and success rate. Converts to a 0–1 health score: 100% errors → ~0.3, high latency → ~0.7, clean → 1.0. The health penalty (0% / 5% / 12% / 25% at thresholds 0.8/0.5/0.3) is factored into every model's score **before** ranking. Unhealthy models sink in the ranking organically before they trigger hard error-blacklisting.
+- **Centralized hyperparameter config** (`src/config.ts`). All tunable constants (learning rate, decay, health thresholds, regeneration TTL, planner timeout, etc.) are now read from `BRAMHASHIV_*` env vars with sensible defaults. Tune without redeploying: `BRAMHASHIV_LEARNING_RATE=0.1 BRAMHASHIV_HEALTH_DECAY=0.8 opencode`.
+
+### Tests
+- 5 new test files: `workspace.test.ts` (15), `health-monitor.test.ts` (17), `regeneration-tracker.test.ts` (16), `learning.test.ts` (17), `planner.test.ts` (17). Total: 185 pass / 0 fail / 1 skip.
+
+### Internal
+- `scorer.ts`: `scoreAndRank()` accepts optional `ScoringContext` (health records, regeneration records, learned adjustments, task excerpt). All callers backward-compatible.
+- `shared-state.ts`: 4 new persisted fields — `learned_adjustments`, `task_history`, `regeneration_records`, `provider_health`.
+- `telemetry.ts`: new `logOutcome()` method writes `TaskOutcome` events to `overrides.log`.
+- `classifier-prompt.ts`: `buildClassifierUserPrompt` accepts optional workspace summary parameter.
+
 ## 0.1.5 — 2026-04-27
 
 Dogfood-polish release. Four real-world fixes caught while routing actual coding tasks through OpenCode TUI.

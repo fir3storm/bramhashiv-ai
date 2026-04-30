@@ -2,8 +2,7 @@ import type { TaskPlan, TraitWeights, TraitName } from "./types.js";
 import { TRAIT_NAMES } from "./types.js";
 import { PLANNER_SYSTEM_PROMPT, buildPlannerUserPrompt } from "./planner-prompt.js";
 import type { CompletionRunner } from "./classifier.js";
-
-const PLANNER_TIMEOUT_MS = 10000;
+import { planner as cfg } from "./config.js";
 
 function parsePlan(raw: string): TaskPlan | null {
   let parsed: unknown;
@@ -78,7 +77,7 @@ function scoreComplexity(task: string): number {
 }
 
 export function heuristicShouldPlan(task: string): boolean {
-  return scoreComplexity(task) >= 3;
+  return scoreComplexity(task) >= cfg.complexity_threshold;
 }
 
 export async function planTask(
@@ -93,7 +92,7 @@ export async function planTask(
     raw = await Promise.race([
       runCompletion({ systemPrompt: PLANNER_SYSTEM_PROMPT, userPrompt }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("planner timeout")), PLANNER_TIMEOUT_MS),
+        setTimeout(() => reject(new Error("planner timeout")), cfg.timeout_ms),
       ),
     ]);
   } catch {

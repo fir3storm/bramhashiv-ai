@@ -1,7 +1,5 @@
 import type { HealthRecord } from "./types.js";
-
-const MAX_LATENCY_SAMPLES = 20;
-const DECAY_ALPHA = 0.7;
+import { health as cfg } from "./config.js";
 
 export function createHealthRecord(provider: string, model_id: string): HealthRecord {
   return {
@@ -32,8 +30,8 @@ function computeHealthScore(record: HealthRecord): number {
 
   let latencyPenalty = 0;
   if (record.latency_samples.length > 0) {
-    const avgLatency = exponentialMovingAverage(record.latency_samples, DECAY_ALPHA);
-    const normalizedLatency = Math.min(avgLatency / 30_000, 1);
+    const avgLatency = exponentialMovingAverage(record.latency_samples, cfg.decay_alpha);
+    const normalizedLatency = Math.min(avgLatency / cfg.latency_baseline_ms, 1);
     latencyPenalty = normalizedLatency * 0.3;
   }
 
@@ -44,7 +42,7 @@ function computeHealthScore(record: HealthRecord): number {
 
 export function recordLatency(record: HealthRecord, latencyMs: number): HealthRecord {
   const samples = [...record.latency_samples, latencyMs];
-  if (samples.length > MAX_LATENCY_SAMPLES) samples.shift();
+  if (samples.length > cfg.max_latency_samples) samples.shift();
   const updated = { ...record, latency_samples: samples, last_used: Date.now() };
   updated.health_score = computeHealthScore(updated);
   return updated;
@@ -78,8 +76,8 @@ export function findOrCreateHealth(
 }
 
 export function getHealthPenalty(score: number): number {
-  if (score >= 0.8) return 0;
-  if (score >= 0.5) return 0.05;
-  if (score >= 0.3) return 0.12;
-  return 0.25;
+  if (score >= cfg.threshold_healthy) return cfg.penalty_healthy;
+  if (score >= cfg.threshold_degraded) return cfg.penalty_degraded;
+  if (score >= cfg.threshold_poor) return cfg.penalty_poor;
+  return cfg.penalty_critical;
 }
