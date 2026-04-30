@@ -11,6 +11,13 @@ describe("shared-state", () => {
     expect(state).toEqual(EMPTY_STATE);
   });
 
+  const base = {
+    learned_adjustments: [] as never[],
+    task_history: [] as never[],
+    regeneration_records: [] as never[],
+    provider_health: [] as never[],
+  } as const;
+
   test("writes and reads state round-trip", async () => {
     const dir = mkdtempSync(join(tmpdir(), "bramhashiv-state-"));
     const path = join(dir, "state.json");
@@ -19,6 +26,7 @@ describe("shared-state", () => {
       last_label: "gemini (speed)",
       last_classifier: null,
       unavailable: [],
+      ...base,
     });
     const state = await readSharedState(path);
     expect(state.pinned_model_id).toBe("google/gemini-flash");
@@ -29,7 +37,7 @@ describe("shared-state", () => {
   test("fills missing fields with defaults", async () => {
     const dir = mkdtempSync(join(tmpdir(), "bramhashiv-state-"));
     const path = join(dir, "state.json");
-    await writeSharedState(path, { pinned_model_id: "x", last_label: null, last_classifier: null, unavailable: [] });
+    await writeSharedState(path, { pinned_model_id: "x", last_label: null, last_classifier: null, unavailable: [], ...base });
     const state = await readSharedState(path);
     expect(state.last_classifier).toBeNull();
     expect(state.unavailable).toEqual([]);
@@ -47,6 +55,7 @@ describe("shared-state", () => {
         { id: "huggingface/moonshotai/Kimi-K2.6", expiresAt: future },
         { id: "huggingface/Qwen/Qwen3-Coder-Next", expiresAt: future },
       ],
+      ...base,
     });
     const state = await readSharedState(path);
     expect(state.unavailable).toHaveLength(2);

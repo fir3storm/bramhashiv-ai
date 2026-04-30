@@ -10,6 +10,7 @@ export interface ClassifyOptions {
   runCompletion: CompletionRunner;
   conversationSnippet?: string;
   timeoutMs?: number;
+  workspaceSummary?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -70,7 +71,7 @@ export async function classify(
   opts: ClassifyOptions,
 ): Promise<ClassifierResult> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const userPrompt = buildClassifierUserPrompt(task, opts.conversationSnippet);
+  const userPrompt = buildClassifierUserPrompt(task, opts.conversationSnippet, opts.workspaceSummary);
 
   let raw: string;
   try {

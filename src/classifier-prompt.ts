@@ -14,8 +14,16 @@ Rules:
 - Weights should roughly sum toward representing the dominant traits; don't zero everything out.
 - If the task is ambiguous, assume moderate deep_reasoning and tool_use_accuracy.`;
 
-export function buildClassifierUserPrompt(task: string, conversationSnippet?: string): string {
-  let out = `TASK:\n${task.trim()}\n`;
+export function buildClassifierUserPrompt(
+  task: string,
+  conversationSnippet?: string,
+  workspaceSummary?: string,
+): string {
+  let out = "";
+  if (workspaceSummary && workspaceSummary.trim()) {
+    out += `WORKSPACE CONTEXT:\n${workspaceSummary.trim()}\n\n`;
+  }
+  out += `TASK:\n${task.trim()}\n`;
   if (conversationSnippet && conversationSnippet.trim()) {
     out += `\nRECENT CONVERSATION (most recent last):\n${conversationSnippet.trim()}\n`;
   }

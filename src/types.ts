@@ -73,3 +73,68 @@ export interface UnavailableMark {
   expiresAt: number;
 }
 
+// ── Feature 1: Closed-loop learning ──────────────────────────────────────────
+
+export interface TaskOutcome {
+  task_excerpt: string;
+  model_id: string;
+  success: boolean;
+  latency_ms: number;
+  regeneration_count: number;
+  diff_size: number;
+  timestamp: string;
+}
+
+export interface ScoreAdjustment {
+  model_id: string;
+  trait: TraitName;
+  delta: number;
+}
+
+// ── Feature 2: Task decomposition ────────────────────────────────────────────
+
+export interface SubTask {
+  description: string;
+  trait_weights: TraitWeights;
+  estimated_tokens: number;
+}
+
+export interface TaskPlan {
+  subtasks: SubTask[];
+  is_complex: boolean;
+  reasoning: string;
+}
+
+// ── Feature 3: Workspace context ─────────────────────────────────────────────
+
+export interface WorkspaceContext {
+  languages: Record<string, number>;
+  total_files: number;
+  repo_detected: boolean;
+  has_tests: boolean;
+  has_frontend: boolean;
+  has_backend: boolean;
+  summary: string;
+}
+
+// ── Feature 4: Regeneration intelligence ─────────────────────────────────────
+
+export interface RegenerationRecord {
+  model_id: string;
+  task_excerpt: string;
+  count: number;
+  last_seen: number;
+}
+
+// ── Feature 5: Provider health monitoring ────────────────────────────────────
+
+export interface HealthRecord {
+  provider: string;
+  model_id: string;
+  latency_samples: number[];
+  error_count: number;
+  success_count: number;
+  last_used: number;
+  health_score: number;
+}
+
