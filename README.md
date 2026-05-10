@@ -76,7 +76,7 @@ Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
 git clone https://github.com/fir3storm/bramhashiv-ai.git
 cd bramhashiv-ai
 bun install
-bun test          # 89 tests
+bun test          # 185 unit + harness + golden-set tests
 ```
 
 Point OpenCode at your local clone:
@@ -162,7 +162,8 @@ BRAMHASHIV_PIN=google/gemini-flash-latest opencode run "your task"
 {
   "pinned_model_id": "google/gemini-flash-latest",
   "last_label": null,
-  "last_classifier": null
+  "last_classifier": null,
+  "last_route_debug": null
 }
 ```
 
@@ -182,7 +183,11 @@ opencode models huggingface
 opencode models anthropic
 ```
 
-If a model in your catalog isn't in OpenCode's list, dispatch will fail with `ProviderModelNotFoundError`.
+If a model in your catalog isn't in OpenCode's list, dispatch will fail with `ProviderModelNotFoundError`. BramhaShiv exposes a pure `validateCatalogModelIds()` helper for tooling that wants to compare a catalog against provider model lists before runtime.
+
+### Route debugging
+
+Every route decision is persisted to `last_route_debug` in `~/.config/bramhashiv/state.json`. It includes the chosen model, ranked candidates, classifier weights, fallback state, and unavailable models. The `handleRouteCommand()` formatter can render this snapshot for a TUI `/route` command or any future wrapper that can read BramhaShiv state.
 
 ---
 

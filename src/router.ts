@@ -43,5 +43,12 @@ export function decideRoute(input: DecideRouteInput): RouteDecision {
 
   const safe = findById(catalog, SAFE_DEFAULT_ID) ?? catalog.models[0];
   if (!safe) throw new Error("catalog is empty");
-  return { picked: safe, top_traits, ranking, classifier, override_source: "fallback" };
+  return {
+    picked: safe,
+    top_traits,
+    ranking,
+    classifier,
+    override_source: "fallback",
+    unavailable_exhausted: true,
+  };
 }

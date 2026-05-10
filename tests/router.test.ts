@@ -56,6 +56,7 @@ describe("decideRoute", () => {
   test("returns safe default when all models unavailable", () => {
     const decision = decideRoute({ catalog, classifier: classifierResult, override: { pinned_model_id: null }, unavailable: new Set(["top", "second", "third"]) });
     expect(decision.override_source).toBe("fallback");
+    expect(decision.unavailable_exhausted).toBe(true);
     expect(decision.picked).toBeDefined();
   });
 

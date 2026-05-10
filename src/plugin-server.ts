@@ -11,6 +11,7 @@ import type {
   ScoreAdjustment,
   TaskOutcome,
   WorkspaceContext,
+  RouteDebugSnapshot,
 } from "./types.js";
 import { geminiFlashRunner } from "./gemini-runner.js";
 import { getGoogleApiKey, getAuthedProviders } from "./opencode-auth.js";
@@ -64,6 +65,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
     let lastDecisionId: string | null = null;
     let taskStartTime: number = 0;
     let regenerationCount: number = 0;
+    let latestDiffSize: number = 0;
 
     // ── Hydrate from state.json ────────────────────────────────────────────
     {
@@ -110,17 +112,31 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
       state: Awaited<ReturnType<typeof readSharedState>>,
       label?: string,
       classifier?: typeof state.last_classifier,
+      routeDebug?: RouteDebugSnapshot,
     ) {
       await writeSharedState(config.statePath, {
         pinned_model_id: state.pinned_model_id,
         last_label: label ?? state.last_label,
         last_classifier: classifier ?? state.last_classifier,
+        last_route_debug: routeDebug ?? state.last_route_debug ?? null,
         unavailable: errorMarks,
         learned_adjustments: learnedAdjustments,
         task_history: taskHistory,
         regeneration_records: regenerationRecords,
         provider_health: healthRecords,
       });
+    }
+
+    async function persistOutcome(outcome: TaskOutcome, errorLabel: string) {
+      taskHistory = recordTaskOutcome(taskHistory, outcome);
+      learnedAdjustments = updateAdjustments(learnedAdjustments, outcome);
+      await telemetry.logOutcome(outcome);
+      try {
+        const state = await readSharedState(config.statePath);
+        await persistState(state);
+      } catch (err) {
+        console.error(errorLabel, err);
+      }
     }
 
     return {
@@ -228,25 +244,30 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             };
           }
 
-          await persistState(state, label, classifier);
+          const routeDebug: RouteDebugSnapshot = {
+            decision,
+            unavailable: [...unavailable],
+          };
 
-          if (pinned && !classifier.fallback) {
+          await persistState(state, label, classifier, routeDebug);
+
+          if (pinned) {
             const autoDecision = await runRouterPipeline({
               text,
               catalog: watcher.current(),
               pinnedModelId: null,
               unavailable,
-              runner: null,
+              runner: config.runner,
               workspaceSummary,
               scoringCtx,
             });
             if (autoDecision.decision.picked.id !== pinned) {
-              void telemetry.logOverride({
+              await telemetry.logOverride({
                 timestamp: new Date().toISOString(),
                 task_excerpt: text.slice(0, 120),
                 routed_to: autoDecision.decision.picked.id,
                 user_picked: pinned,
-                top_traits: decision.top_traits,
+                top_traits: autoDecision.decision.top_traits,
               });
             }
           }
@@ -263,6 +284,13 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               ),
               `---`,
             ];
+            hookOutput.parts.push({
+              id: `${hookOutput.message.id}-bramhashiv-plan`,
+              sessionID: hookOutput.message.sessionID,
+              messageID: hookOutput.message.id,
+              type: "text",
+              text: planLines.join("\n"),
+            });
             dbg("planner.subtasks", { lines: planLines });
           }
         } catch (err) {
@@ -270,6 +298,10 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
         }
       },
       event: async ({ event }) => {
+        if (event.type === "session.diff") {
+          latestDiffSize = extractSessionDiffSize(event.properties as Record<string, unknown>);
+        }
+
         // ── Error tracking (existing) ─────────────────────────────────────
         if (event.type === "session.error") {
           const error = event.properties.error as SessionErrorPayload | undefined;
@@ -309,14 +341,28 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
                 }
               }
             }
+
+            if (lastDecisionId && taskStartTime > 0) {
+              const outcome: TaskOutcome = {
+                task_excerpt: lastTaskText.slice(0, 120),
+                model_id: lastDecisionId,
+                success: false,
+                latency_ms: Date.now() - taskStartTime,
+                regeneration_count: regenerationCount,
+                diff_size: 0,
+                timestamp: new Date().toISOString(),
+              };
+              await persistOutcome(outcome, "[bramhashiv] failed to persist failed outcome:");
+              taskStartTime = 0;
+            }
           }
         }
 
         // ── Health + Learning: message.updated (task completion) ───────
         if (event.type === "message.updated") {
           const props = event.properties as Record<string, unknown> | undefined;
-          const msg = props?.message as { isComplete?: boolean } | undefined;
-          if (msg?.isComplete && lastDecisionId && taskStartTime > 0) {
+          const info = props?.info as { time?: { completed?: number } } | undefined;
+          if (info?.time?.completed !== undefined && lastDecisionId && taskStartTime > 0) {
             const latencyMs = Date.now() - taskStartTime;
             const provider = lastDecisionId.split("/")[0];
             if (provider) {
@@ -331,13 +377,10 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               success: true,
               latency_ms: latencyMs,
               regeneration_count: regenerationCount,
-              diff_size: 0,
+              diff_size: extractDiffSize(props, latestDiffSize),
               timestamp: new Date().toISOString(),
             };
-            taskHistory = recordTaskOutcome(taskHistory, outcome);
-            learnedAdjustments = updateAdjustments(learnedAdjustments, outcome);
-
-            void telemetry.logOutcome(outcome);
+            await persistOutcome(outcome, "[bramhashiv] failed to persist learned state:");
 
             dbg("task.complete", {
               model: lastDecisionId,
@@ -348,14 +391,8 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               adjustments: learnedAdjustments.length,
             });
 
-            try {
-              const state = await readSharedState(config.statePath);
-              await persistState(state);
-            } catch (err) {
-              console.error("[bramhashiv] failed to persist learned state:", err);
-            }
-
             taskStartTime = 0;
+            latestDiffSize = 0;
           }
         }
       },
@@ -370,6 +407,36 @@ function resolveDefaultRunner(): CompletionRunner | null {
     getGoogleApiKey() ??
     "";
   return apiKey ? geminiFlashRunner({ apiKey }) : null;
+}
+
+function extractDiffSize(props: Record<string, unknown> | undefined, fallback: number = 0): number {
+  const direct = props?.diff_size ?? props?.diffSize;
+  if (typeof direct === "number" && Number.isFinite(direct) && direct >= 0) {
+    return direct;
+  }
+
+  const message = props?.message;
+  if (message && typeof message === "object") {
+    const msg = message as Record<string, unknown>;
+    const messageDiff = msg.diff_size ?? msg.diffSize;
+    if (typeof messageDiff === "number" && Number.isFinite(messageDiff) && messageDiff >= 0) {
+      return messageDiff;
+    }
+  }
+
+  return fallback;
+}
+
+function extractSessionDiffSize(props: Record<string, unknown> | undefined): number {
+  const diff = props?.diff;
+  if (!Array.isArray(diff)) return 0;
+  return diff.reduce((total, item) => {
+    if (!item || typeof item !== "object") return total;
+    const entry = item as Record<string, unknown>;
+    const additions = typeof entry.additions === "number" && Number.isFinite(entry.additions) ? entry.additions : 0;
+    const deletions = typeof entry.deletions === "number" && Number.isFinite(entry.deletions) ? entry.deletions : 0;
+    return total + Math.max(0, additions) + Math.max(0, deletions);
+  }, 0);
 }
 
 export const bramhashivServer: Plugin = createServerPlugin({

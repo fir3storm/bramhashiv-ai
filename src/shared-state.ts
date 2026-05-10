@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import type {
   ClassifierResult,
@@ -7,12 +7,14 @@ import type {
   TaskOutcome,
   RegenerationRecord,
   HealthRecord,
+  RouteDebugSnapshot,
 } from "./types.js";
 
 export interface SharedState {
   pinned_model_id: string | null;
   last_label: string | null;
   last_classifier: ClassifierResult | null;
+  last_route_debug?: RouteDebugSnapshot | null;
   unavailable: UnavailableMark[];
   learned_adjustments: ScoreAdjustment[];
   task_history: TaskOutcome[];
@@ -24,6 +26,7 @@ export const EMPTY_STATE: SharedState = {
   pinned_model_id: null,
   last_label: null,
   last_classifier: null,
+  last_route_debug: null,
   unavailable: [],
   learned_adjustments: [],
   task_history: [],
@@ -38,6 +41,7 @@ export async function readSharedState(path: string): Promise<SharedState> {
     return {
       ...EMPTY_STATE,
       ...parsed,
+      last_route_debug: parsed.last_route_debug ?? null,
       unavailable: Array.isArray(parsed.unavailable) ? parsed.unavailable : [],
       learned_adjustments: Array.isArray(parsed.learned_adjustments) ? parsed.learned_adjustments : [],
       task_history: Array.isArray(parsed.task_history) ? parsed.task_history : [],
@@ -51,7 +55,14 @@ export async function readSharedState(path: string): Promise<SharedState> {
 
 export async function writeSharedState(path: string, state: SharedState): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(state, null, 2), "utf8");
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmpPath, JSON.stringify(state, null, 2), "utf8");
+  try {
+    await rename(tmpPath, path);
+  } catch (err) {
+    await rm(tmpPath, { force: true });
+    throw err;
+  }
 }
 
 /**

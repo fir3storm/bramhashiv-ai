@@ -5,6 +5,30 @@ import { TRAIT_NAMES, type Catalog, type ModelEntry, type TraitName } from "./ty
 
 const ALLOWED_PROVIDERS = ["anthropic", "google", "huggingface", "openrouter", "openai"] as const;
 
+export type ProviderModelList = readonly string[] | ReadonlySet<string>;
+
+export type CatalogModelIdIssue =
+  | {
+      type: "unknown_provider";
+      provider: ModelEntry["provider"];
+      modelId: string;
+    }
+  | {
+      type: "unknown_model";
+      provider: ModelEntry["provider"];
+      modelId: string;
+    }
+  | {
+      type: "duplicate_model_id";
+      modelId: string;
+      firstIndex: number;
+      duplicateIndex: number;
+    };
+
+function providerModelListHas(models: ProviderModelList, modelId: string): boolean {
+  return "has" in models ? models.has(modelId) : models.includes(modelId);
+}
+
 export function validateCatalog(cat: unknown): asserts cat is Catalog {
   if (!cat || typeof cat !== "object" || !("models" in cat)) {
     throw new Error("catalog must have a 'models' key");
@@ -32,6 +56,48 @@ export function validateCatalog(cat: unknown): asserts cat is Catalog {
       }
     }
   }
+}
+
+export function validateCatalogModelIds(
+  cat: Catalog,
+  availableModelsByProvider: Partial<Record<ModelEntry["provider"], ProviderModelList>>,
+): CatalogModelIdIssue[] {
+  const issues: CatalogModelIdIssue[] = [];
+  const firstSeenById = new Map<string, number>();
+
+  cat.models.forEach((model, index) => {
+    const firstIndex = firstSeenById.get(model.id);
+    if (firstIndex === undefined) {
+      firstSeenById.set(model.id, index);
+    } else {
+      issues.push({
+        type: "duplicate_model_id",
+        modelId: model.id,
+        firstIndex,
+        duplicateIndex: index,
+      });
+    }
+
+    const availableModels = availableModelsByProvider[model.provider];
+    if (!availableModels) {
+      issues.push({
+        type: "unknown_provider",
+        provider: model.provider,
+        modelId: model.id,
+      });
+      return;
+    }
+
+    if (!providerModelListHas(availableModels, model.id)) {
+      issues.push({
+        type: "unknown_model",
+        provider: model.provider,
+        modelId: model.id,
+      });
+    }
+  });
+
+  return issues;
 }
 
 export function parseCatalog(yamlText: string): Catalog {

@@ -57,6 +57,12 @@ export interface RouteDecision {
   ranking: RankedModel[];
   classifier: ClassifierResult;
   override_source?: "user" | "fallback";
+  unavailable_exhausted?: boolean;
+}
+
+export interface RouteDebugSnapshot {
+  decision: RouteDecision;
+  unavailable: string[];
 }
 
 export interface OverrideState {
@@ -137,4 +143,3 @@ export interface HealthRecord {
   last_used: number;
   health_score: number;
 }
-
