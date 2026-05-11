@@ -8,7 +8,7 @@
   "homepage": "https://github.com/fir3storm/bramhashiv-ai",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fir3storm/bramhashiv-ai.git"
+    "url": "git+https://github.com/fir3storm/bramhashiv-ai.git"
   },
   "main": "src/plugin-server.ts",
   "exports": {
