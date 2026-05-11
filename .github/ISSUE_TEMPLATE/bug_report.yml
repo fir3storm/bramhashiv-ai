@@ -1,0 +1,78 @@
+name: Bug report
+description: Report something that is broken or behaving unexpectedly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please do not include API keys, OAuth tokens, auth files, or private prompts.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: BramhaShiv routed to an unavailable model even though...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: input
+    id: bramhashiv-version
+    attributes:
+      label: BramhaShiv version or commit
+      placeholder: v0.2.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: opencode-version
+    attributes:
+      label: OpenCode version
+      placeholder: opencode --version
+    validations:
+      required: false
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider involved
+      multiple: true
+      options:
+        - OpenAI
+        - Google Gemini
+        - Anthropic
+        - HuggingFace
+        - OpenRouter
+        - Not provider-specific
+    validations:
+      required: false
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal task, config, or catalog change when possible. Remove secrets first.
+      placeholder: |
+        1. Configure providers...
+        2. Run...
+        3. Send task...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or errors
+      description: Paste only sanitized logs. Remove tokens, API keys, local paths you do not want public, and private prompts.
+      render: text
+    validations:
+      required: false

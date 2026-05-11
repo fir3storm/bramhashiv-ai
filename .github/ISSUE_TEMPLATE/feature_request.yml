@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest an improvement to routing, catalog behavior, docs, or developer workflow.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape BramhaShiv AI. Please describe the workflow and outcome, not just the implementation idea.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow
+      description: What are you trying to do, and where does the current project fall short?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: What should BramhaShiv do differently?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example task or scenario
+      description: For routing changes, include an example prompt and the model/provider behavior you expected.
+      placeholder: For a large refactor across many files, I expected...
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Routing/scoring
+        - Provider health and fallback
+        - Catalog/model metadata
+        - Planner/task decomposition
+        - Learning/telemetry
+        - Documentation
+        - Developer experience
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs or risks
+      description: Anything that could make this more complex, expensive, risky, or confusing?
+    validations:
+      required: false

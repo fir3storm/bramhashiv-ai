@@ -1,0 +1,23 @@
+name: Question
+description: Ask about setup, routing behavior, provider auth, or usage.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include API keys, OAuth tokens, auth files, or private prompts.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to understand?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Share the relevant setup or workflow. Remove secrets first.
+    validations:
+      required: false
