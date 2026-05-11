@@ -12,8 +12,13 @@ Major intelligence upgrade. Five new adaptive routing layers make BramhaShiv sel
 - **Provider health monitoring** (`src/health-monitor.ts`). Tracks per-model latency (EMA with α=0.7), error rate, and success rate. Converts to a 0–1 health score: 100% errors → ~0.3, high latency → ~0.7, clean → 1.0. The health penalty (0% / 5% / 12% / 25% at thresholds 0.8/0.5/0.3) is factored into every model's score **before** ranking. Unhealthy models sink in the ranking organically before they trigger hard error-blacklisting.
 - **Centralized hyperparameter config** (`src/config.ts`). All tunable constants (learning rate, decay, health thresholds, regeneration TTL, planner timeout, etc.) are now read from `BRAMHASHIV_*` env vars with sensible defaults. Tune without redeploying: `BRAMHASHIV_LEARNING_RATE=0.1 BRAMHASHIV_HEALTH_DECAY=0.8 opencode`.
 
+### Changed
+- `/route` diagnostics now include the last classifier output, candidate rankings, skipped models, fallback state, and route reason from the previous decision.
+- Catalog validation reports unavailable providers, unavailable model IDs, and duplicate catalog IDs before dispatch.
+- GitHub community standards are filled in with a code of conduct, contributing guide, issue templates, and a pull request template.
+
 ### Tests
-- 5 new test files: `workspace.test.ts` (15), `health-monitor.test.ts` (17), `regeneration-tracker.test.ts` (16), `learning.test.ts` (17), `planner.test.ts` (17). Total: 185 pass / 0 fail / 1 skip.
+- 5 new test files: `workspace.test.ts` (15), `health-monitor.test.ts` (17), `regeneration-tracker.test.ts` (16), `learning.test.ts` (17), `planner.test.ts` (17). Total: 193 pass / 0 fail / 1 skip.
 
 ### Internal
 - `scorer.ts`: `scoreAndRank()` accepts optional `ScoringContext` (health records, regeneration records, learned adjustments, task excerpt). All callers backward-compatible.

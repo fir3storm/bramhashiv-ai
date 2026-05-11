@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![npm downloads](https://img.shields.io/npm/dm/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-185%20passing-brightgreen)](./tests)
+[![Tests](https://img.shields.io/badge/tests-193%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
 [![OpenCode](https://img.shields.io/badge/OpenCode-1.14.24-orange)](https://github.com/sst/opencode)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-FF9933?labelColor=138808)](#-author)
@@ -76,7 +76,7 @@ Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
 git clone https://github.com/fir3storm/bramhashiv-ai.git
 cd bramhashiv-ai
 bun install
-bun test          # 185 unit + harness + golden-set tests
+bun test          # 193 unit + harness + golden-set tests
 ```
 
 Point OpenCode at your local clone:
@@ -253,7 +253,7 @@ BRAMHASHIV_MAX_DEPTH_SCAN=4        # max directory depth
 
 ```bash
 bun install
-bun test            # 185 unit + harness + golden-set tests
+bun test            # 193 unit + harness + golden-set tests
 bun run typecheck
 BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
 ```
