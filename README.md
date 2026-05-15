@@ -274,9 +274,7 @@ BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
 Made by **Abhirup Guha**.
 
 <p align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/2/2c/Flag-of-India.gif" alt="Flag of India" width="80" />
-  <br/>
-  <strong>🪔 Proudly created in <img src="https://upload.wikimedia.org/wikipedia/commons/2/2c/Flag-of-India.gif" alt="India" height="14" align="center" />, by an Indian — open-sourced for the betterment of the AI future.</strong>
+  <strong>🪔 Proudly created in 🇮🇳, by an Indian — open-sourced for the betterment of the AI future.</strong>
 </p>
 
 ---
