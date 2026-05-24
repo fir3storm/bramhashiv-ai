@@ -12,6 +12,7 @@ import type {
   TaskOutcome,
   WorkspaceContext,
   RouteDebugSnapshot,
+  BudgetState,
 } from "./types.js";
 import { geminiFlashRunner } from "./gemini-runner.js";
 import { getGoogleApiKey, getAuthedProviders } from "./opencode-auth.js";
@@ -22,10 +23,14 @@ import {
   recordError,
   recordSuccess,
 } from "./health-monitor.js";
+import { checkHealthAlert } from "./alerts.js";
 import { recordRegenerationHit, getRegenerationCount } from "./regeneration-tracker.js";
 import { recordTaskOutcome, updateAdjustments } from "./learning.js";
+import { readTeamState, writeTeamState, mergeWithTeamState } from "./team-sync.js";
 import { heuristicShouldPlan, planTask } from "./planner.js";
 import { dbg } from "./debug.js";
+import { formatExplanationForDisplay } from "./explanation.js";
+import { recordSpend, estimateTaskCost, getBudgetStatus } from "./budget.js";
 import {
   CATALOG_PATH,
   STATE_PATH,
@@ -66,15 +71,20 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
     let taskStartTime: number = 0;
     let regenerationCount: number = 0;
     let latestDiffSize: number = 0;
+    let budgetState: BudgetState | null = null;
+    const conversationHistory: string[] = [];
 
     // ── Hydrate from state.json ────────────────────────────────────────────
     {
       const initial = await readSharedState(config.statePath);
-      errorMarks = pruneUnavailable(initial.unavailable);
-      healthRecords = initial.provider_health;
-      regenerationRecords = initial.regeneration_records;
-      learnedAdjustments = initial.learned_adjustments;
-      taskHistory = initial.task_history;
+      const team = readTeamState();
+      const merged = team ? mergeWithTeamState(initial, team) : initial;
+      errorMarks = pruneUnavailable(merged.unavailable);
+      healthRecords = merged.provider_health;
+      regenerationRecords = merged.regeneration_records;
+      learnedAdjustments = merged.learned_adjustments;
+      taskHistory = merged.task_history;
+      budgetState = merged.budget ?? null;
       dbg("activation", {
         catalogModels: watcher.current().models.length,
         loadedMarks: errorMarks.length,
@@ -82,6 +92,8 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
         regenerationRecords: regenerationRecords.length,
         learnedAdjustments: learnedAdjustments.length,
         taskHistory: taskHistory.length,
+        budgetState: budgetState ? { daily: budgetState.daily_spend, monthly: budgetState.monthly_spend } : null,
+        teamSync: team !== null,
       });
     }
 
@@ -114,7 +126,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
       classifier?: typeof state.last_classifier,
       routeDebug?: RouteDebugSnapshot,
     ) {
-      await writeSharedState(config.statePath, {
+      const toWrite = {
         pinned_model_id: state.pinned_model_id,
         last_label: label ?? state.last_label,
         last_classifier: classifier ?? state.last_classifier,
@@ -124,7 +136,10 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
         task_history: taskHistory,
         regeneration_records: regenerationRecords,
         provider_health: healthRecords,
-      });
+        budget: budgetState ?? undefined,
+      };
+      await writeSharedState(config.statePath, toWrite);
+      writeTeamState(toWrite);
     }
 
     async function persistOutcome(outcome: TaskOutcome, errorLabel: string) {
@@ -193,7 +208,11 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             regenerationRecords,
             adjustments: learnedAdjustments,
             taskExcerpt: text.slice(0, 120),
+            budgetState: budgetState ?? undefined,
           };
+
+          conversationHistory.push(text);
+          if (conversationHistory.length > 20) conversationHistory.shift();
 
           const { decision, classifier } = await runRouterPipeline({
             text,
@@ -203,15 +222,27 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             runner: config.runner,
             workspaceSummary,
             scoringCtx,
+            conversationHistory: [...conversationHistory],
           });
 
+          const dryRun = process.env.BRAMHASHIV_DRY_RUN === "1";
           const parts = decision.picked.id.split("/");
           const providerID = parts[0];
           const modelID = parts.slice(1).join("/");
-          if (providerID && modelID) {
+          if (providerID && modelID && !dryRun) {
             hookOutput.message.model = { providerID, modelID };
             lastRoutedModelId = decision.picked.id;
             lastDecisionId = decision.picked.id;
+          } else if (dryRun && providerID && modelID) {
+            lastRoutedModelId = decision.picked.id;
+            lastDecisionId = decision.picked.id;
+            hookOutput.parts.push({
+              id: `${hookOutput.message.id}-bramhashiv-dryrun`,
+              sessionID: hookOutput.message.sessionID,
+              messageID: hookOutput.message.id,
+              type: "text",
+              text: `\n[DRY RUN] Would route to: ${decision.picked.id} (${decision.top_traits.join(" · ")})\n`,
+            });
           }
 
           taskStartTime = Date.now();
@@ -233,6 +264,28 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             planComplex: plan?.is_complex ?? false,
             planSubtasks: plan?.subtasks.length ?? 0,
           });
+
+          // ── Emit routing explanation if enabled ─────────────────────────
+          if (process.env.BRAMHASHIV_EXPLAIN === "1" && decision.explanation) {
+            const explanationText = formatExplanationForDisplay(decision.explanation);
+            hookOutput.parts.push({
+              id: `${hookOutput.message.id}-bramhashiv-explain`,
+              sessionID: hookOutput.message.sessionID,
+              messageID: hookOutput.message.id,
+              type: "text",
+              text: `\n--- Routing Explanation ---\n${explanationText}\n---`,
+            });
+          }
+
+          // ── Budget: record estimated spend ─────────────────────────────
+          if (budgetState) {
+            const estimatedCost = estimateTaskCost(decision.picked);
+            budgetState = recordSpend(budgetState, decision.picked, estimatedCost, text);
+            const status = getBudgetStatus(budgetState);
+            if (status.near_limit) {
+              dbg("budget.near_limit", { daily: status.daily_spend, monthly: status.monthly_spend });
+            }
+          }
 
           // ── Health: record usage attempt ───────────────────────────────
           if (providerID) {
@@ -313,6 +366,8 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
                 const h = findOrCreateHealth(healthRecords, provider, lastRoutedModelId);
                 healthRecords = h.records;
                 healthRecords[h.index] = recordError(h.record);
+                const alert = checkHealthAlert(healthRecords[h.index]!);
+                if (alert) console.warn(alert);
               }
             }
 
@@ -361,7 +416,24 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
         // ── Health + Learning: message.updated (task completion) ───────
         if (event.type === "message.updated") {
           const props = event.properties as Record<string, unknown> | undefined;
-          const info = props?.info as { time?: { completed?: number } } | undefined;
+          const info = props?.info as { time?: { completed?: number }; headers?: Record<string, string> } | undefined;
+
+          // Proactive quota management: check rate limit headers
+          const headers = info?.headers;
+          if (headers && lastDecisionId) {
+            const remaining = headers["x-ratelimit-remaining"] ?? headers["x-ratelimit-requests-remaining"];
+            if (remaining !== undefined) {
+              const remainingNum = Number(remaining);
+              if (!Number.isNaN(remainingNum) && remainingNum <= 3) {
+                const expiresAt = Date.now() + 5 * 60 * 1000; // 5 min cooldown
+                errorMarks.push({ id: lastDecisionId, expiresAt });
+                console.log(
+                  `[bramhashiv] [quota] ${lastDecisionId} has ${remainingNum} requests remaining; cooling off for 5 min`,
+                );
+              }
+            }
+          }
+
           if (info?.time?.completed !== undefined && lastDecisionId && taskStartTime > 0) {
             const latencyMs = Date.now() - taskStartTime;
             const provider = lastDecisionId.split("/")[0];
@@ -369,6 +441,8 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               const h = findOrCreateHealth(healthRecords, provider, lastDecisionId);
               healthRecords = h.records;
               healthRecords[h.index] = recordSuccess(h.record, latencyMs);
+              const alert = checkHealthAlert(healthRecords[h.index]!);
+              if (alert) console.warn(alert);
             }
 
             const outcome: TaskOutcome = {

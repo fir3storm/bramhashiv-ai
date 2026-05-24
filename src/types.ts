@@ -34,10 +34,20 @@ export interface ModelEntry {
   provider: "anthropic" | "google" | "huggingface" | "openrouter" | "openai";
   scores: TraitScores;
   hard_filters?: HardFilters;
+  /** Estimated cost per 1K input tokens in USD (optional, for budget tracking). */
+  cost_per_1k_input?: number;
+  /** Estimated cost per 1K output tokens in USD (optional, for budget tracking). */
+  cost_per_1k_output?: number;
+}
+
+export interface CustomTrait {
+  name: string;
+  description: string;
 }
 
 export interface Catalog {
   models: ModelEntry[];
+  custom_traits?: CustomTrait[];
 }
 
 export interface ClassifierResult {
@@ -51,6 +61,35 @@ export interface RankedModel {
   score: number;
 }
 
+export interface TraitBreakdown {
+  trait: TraitName;
+  weight: number;
+  base_score: number;
+  learned_adjustment: number;
+  contribution: number;
+}
+
+export interface ModelScoreExplanation {
+  model_id: string;
+  final_score: number;
+  trait_breakdown: TraitBreakdown[];
+  health_penalty: number;
+  regeneration_penalty: number;
+  budget_penalty?: number;
+  hard_filter_excluded?: boolean;
+}
+
+export interface RouteExplanation {
+  picked_model: ModelScoreExplanation;
+  all_models: ModelScoreExplanation[];
+  top_traits: TraitName[];
+  classifier_weights: TraitWeights;
+  classifier_fallback: boolean;
+  override_source?: "user" | "fallback";
+  unavailable_exhausted?: boolean;
+  unavailable_models: string[];
+}
+
 export interface RouteDecision {
   picked: ModelEntry;
   top_traits: TraitName[];
@@ -58,6 +97,8 @@ export interface RouteDecision {
   classifier: ClassifierResult;
   override_source?: "user" | "fallback";
   unavailable_exhausted?: boolean;
+  ab_test?: boolean;
+  explanation?: RouteExplanation;
 }
 
 export interface RouteDebugSnapshot {
@@ -142,4 +183,22 @@ export interface HealthRecord {
   success_count: number;
   last_used: number;
   health_score: number;
+}
+
+// ── Feature 6: Budget guardrails ───────────────────────────────────────────────
+
+export interface BudgetSpendRecord {
+  model_id: string;
+  provider: string;
+  estimated_cost_usd: number;
+  timestamp: string;
+  task_excerpt: string;
+}
+
+export interface BudgetState {
+  daily_spend: number;
+  monthly_spend: number;
+  last_reset_day: string;
+  last_reset_month: string;
+  records: BudgetSpendRecord[];
 }

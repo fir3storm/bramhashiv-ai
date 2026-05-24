@@ -8,7 +8,9 @@ import type {
   RegenerationRecord,
   HealthRecord,
   RouteDebugSnapshot,
+  BudgetState,
 } from "./types.js";
+import { createEmptyBudgetState } from "./budget.js";
 
 export interface SharedState {
   pinned_model_id: string | null;
@@ -20,6 +22,7 @@ export interface SharedState {
   task_history: TaskOutcome[];
   regeneration_records: RegenerationRecord[];
   provider_health: HealthRecord[];
+  budget?: BudgetState;
 }
 
 export const EMPTY_STATE: SharedState = {
@@ -32,6 +35,7 @@ export const EMPTY_STATE: SharedState = {
   task_history: [],
   regeneration_records: [],
   provider_health: [],
+  budget: createEmptyBudgetState(),
 };
 
 export async function readSharedState(path: string): Promise<SharedState> {
@@ -47,6 +51,7 @@ export async function readSharedState(path: string): Promise<SharedState> {
       task_history: Array.isArray(parsed.task_history) ? parsed.task_history : [],
       regeneration_records: Array.isArray(parsed.regeneration_records) ? parsed.regeneration_records : [],
       provider_health: Array.isArray(parsed.provider_health) ? parsed.provider_health : [],
+      budget: parsed.budget ?? createEmptyBudgetState(),
     };
   } catch {
     return { ...EMPTY_STATE, unavailable: [] };

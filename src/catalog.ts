@@ -1,5 +1,6 @@
 import { parse as parseYaml } from "yaml";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import chokidar from "chokidar";
 import { TRAIT_NAMES, type Catalog, type ModelEntry, type TraitName } from "./types.js";
 
@@ -33,7 +34,17 @@ export function validateCatalog(cat: unknown): asserts cat is Catalog {
   if (!cat || typeof cat !== "object" || !("models" in cat)) {
     throw new Error("catalog must have a 'models' key");
   }
-  const models = (cat as { models: unknown }).models;
+  const c = cat as Record<string, unknown>;
+  if (c.custom_traits !== undefined) {
+    if (!Array.isArray(c.custom_traits)) throw new Error("'custom_traits' must be a list");
+    for (const ct of c.custom_traits) {
+      if (!ct || typeof ct !== "object") throw new Error("custom_trait entry must be object");
+      const entry = ct as Record<string, unknown>;
+      if (typeof entry.name !== "string") throw new Error("custom_trait.name must be string");
+      if (typeof entry.description !== "string") throw new Error("custom_trait.description must be string");
+    }
+  }
+  const models = c.models;
   if (!Array.isArray(models)) throw new Error("'models' must be a list");
   for (const m of models) {
     if (!m || typeof m !== "object") throw new Error("model entry must be object");
@@ -110,6 +121,27 @@ export function loadCatalog(path: string): Catalog {
   return parseCatalog(readFileSync(path, "utf8"));
 }
 
+function findProjectCatalog(startDir: string): string | null {
+  const maxDepth = 5;
+  let dir = startDir;
+  for (let i = 0; i < maxDepth; i++) {
+    const candidate = join(dir, ".bramhashiv", "catalog.yaml");
+    if (existsSync(candidate)) return candidate;
+    const parent = join(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+function mergeCatalogs(base: Catalog, override: Catalog): Catalog {
+  const byId = new Map(base.models.map((m) => [m.id, m]));
+  for (const m of override.models) {
+    byId.set(m.id, m);
+  }
+  return { models: [...byId.values()] };
+}
+
 export interface CatalogWatcher {
   current(): Catalog;
   stop(): void;
@@ -117,16 +149,37 @@ export interface CatalogWatcher {
 
 export function watchCatalog(path: string, onChange?: (c: Catalog) => void): CatalogWatcher {
   let current = loadCatalog(path);
+
+  // Load project-level override if present
+  const projectPath = findProjectCatalog(process.cwd());
+  if (projectPath) {
+    try {
+      const override = loadCatalog(projectPath);
+      current = mergeCatalogs(current, override);
+    } catch (err) {
+      console.error(`[bramhashiv] project catalog override failed:`, err);
+    }
+  }
+
   const watcher = chokidar.watch(path, { ignoreInitial: true });
   watcher.on("change", () => {
     try {
-      const next = loadCatalog(path);
+      let next = loadCatalog(path);
+      if (projectPath) {
+        try {
+          const override = loadCatalog(projectPath);
+          next = mergeCatalogs(next, override);
+        } catch {
+          // keep base if project override fails
+        }
+      }
       current = next;
       onChange?.(next);
     } catch (err) {
       console.error(`[bramhashiv] catalog reload failed, keeping previous:`, err);
     }
   });
+
   return {
     current: () => current,
     stop: () => void watcher.close(),

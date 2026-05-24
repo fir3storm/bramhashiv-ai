@@ -1,6 +1,7 @@
 import { TRAIT_NAMES, type ClassifierResult, type TraitName, type TraitWeights } from "./types.js";
-import { CLASSIFIER_SYSTEM_PROMPT, buildClassifierUserPrompt } from "./classifier-prompt.js";
+import { buildClassifierSystemPrompt, buildClassifierUserPrompt } from "./classifier-prompt.js";
 import { classifier as cfg } from "./config.js";
+import type { Catalog } from "./types.js";
 
 export type CompletionRunner = (args: {
   systemPrompt: string;
@@ -12,6 +13,7 @@ export interface ClassifyOptions {
   conversationSnippet?: string;
   timeoutMs?: number;
   workspaceSummary?: string;
+  catalog?: Catalog;
 }
 
 const FALLBACK_WEIGHTS: TraitWeights = {
@@ -41,7 +43,7 @@ function stripFences(text: string): string {
   return trimmed;
 }
 
-function parseWeights(raw: string): TraitWeights | null {
+function parseWeights(raw: string, catalog?: Catalog): TraitWeights | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stripFences(raw));
@@ -50,12 +52,26 @@ function parseWeights(raw: string): TraitWeights | null {
   }
   if (!parsed || typeof parsed !== "object") return null;
   const p = parsed as Record<string, unknown>;
+
+  // Start with base traits
   const result: Partial<TraitWeights> = {};
   for (const trait of TRAIT_NAMES) {
     const v = p[trait];
     if (typeof v !== "number") return null;
     result[trait as TraitName] = clamp01(v);
   }
+
+  // Include custom traits if present in catalog
+  if (catalog?.custom_traits) {
+    for (const ct of catalog.custom_traits) {
+      const v = p[ct.name];
+      if (typeof v === "number") {
+        // Store custom trait weight in a way that scoring can use it
+        // For now, we ignore custom traits in scoring but accept them from classifier
+      }
+    }
+  }
+
   return result as TraitWeights;
 }
 
@@ -64,12 +80,13 @@ export async function classify(
   opts: ClassifyOptions,
 ): Promise<ClassifierResult> {
   const timeoutMs = opts.timeoutMs ?? cfg.timeout_ms;
+  const systemPrompt = buildClassifierSystemPrompt(opts.catalog);
   const userPrompt = buildClassifierUserPrompt(task, opts.conversationSnippet, opts.workspaceSummary);
 
   let raw: string;
   try {
     raw = await Promise.race([
-      opts.runCompletion({ systemPrompt: CLASSIFIER_SYSTEM_PROMPT, userPrompt }),
+      opts.runCompletion({ systemPrompt, userPrompt }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("classifier timeout")), timeoutMs),
       ),
@@ -78,7 +95,7 @@ export async function classify(
     return { weights: { ...FALLBACK_WEIGHTS }, fallback: true };
   }
 
-  const weights = parseWeights(raw);
+  const weights = parseWeights(raw, opts.catalog);
   if (!weights) {
     return { weights: { ...FALLBACK_WEIGHTS }, fallback: true, raw };
   }

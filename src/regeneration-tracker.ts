@@ -1,19 +1,6 @@
 import type { RegenerationRecord } from "./types.js";
 import { regeneration as cfg } from "./config.js";
-
-function jaccardSimilarity(a: string, b: string): number {
-  const wordsA = new Set(a.toLowerCase().split(/\s+/).filter(Boolean));
-  const wordsB = new Set(b.toLowerCase().split(/\s+/).filter(Boolean));
-  if (wordsA.size === 0 && wordsB.size === 0) return 0;
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
-
-  let intersection = 0;
-  for (const w of wordsA) {
-    if (wordsB.has(w)) intersection++;
-  }
-  const union = wordsA.size + wordsB.size - intersection;
-  return union === 0 ? 0 : intersection / union;
-}
+import { computeTaskSimilarity } from "./semantic-similarity.js";
 
 function findSimilarTask(
   records: RegenerationRecord[],
@@ -23,7 +10,7 @@ function findSimilarTask(
   for (const r of records) {
     if (r.model_id !== modelId) continue;
     if (Date.now() - r.last_seen > cfg.ttl_ms) continue;
-    const sim = jaccardSimilarity(r.task_excerpt, taskExcerpt);
+    const sim = computeTaskSimilarity(r.task_excerpt, taskExcerpt);
     if (sim >= cfg.similarity_threshold) return r;
   }
   return undefined;

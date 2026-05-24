@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![npm downloads](https://img.shields.io/npm/dm/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-193%20passing-brightgreen)](./tests)
+[![Tests](https://img.shields.io/badge/tests-216%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
 [![OpenCode](https://img.shields.io/badge/OpenCode-1.14.24-orange)](https://github.com/sst/opencode)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-FF9933?labelColor=138808)](#-author)
@@ -34,7 +34,7 @@
 
 ## 📦 Scope
 
-**v0.2 (current):** 5-layer adaptive routing — trait-based routing + workspace-aware classification + closed-loop learning + task decomposition planner + regeneration intelligence + provider health monitoring. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
+**v0.3 (current):** 15-layer adaptive routing — trait-based routing + workspace-aware classification + closed-loop learning + task decomposition planner + regeneration intelligence + provider health monitoring + budget guardrails + semantic similarity + conversation-aware routing + dry-run mode + custom traits + proactive quota management + latency SLOs + time-based routing + team-synced learning + project-level catalog overrides + A/B testing + model performance alerts + state import/export. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
 
 **v1.0+ roadmap:** TUI plugin with `/model` dialog picker + `/route` debug command, shared catalog registry, confidence prompts.
 
@@ -76,7 +76,7 @@ Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
 git clone https://github.com/fir3storm/bramhashiv-ai.git
 cd bramhashiv-ai
 bun install
-bun test          # 193 unit + harness + golden-set tests
+bun test          # 216 unit + harness + golden-set tests
 ```
 
 Point OpenCode at your local clone:
@@ -173,6 +173,33 @@ Clear the pin by setting `pinned_model_id` to `null` or unsetting the env var.
 
 Open `~/.config/bramhashiv/catalog.yaml` and adjust any model's scores (0–10 per trait). Hot-reloaded, no restart.
 
+**Project-level overrides:** drop a `.bramhashiv/catalog.yaml` in your project root. It merges with the global catalog — project-specific models override global ones by ID. Great for team-shared model preferences per repo.
+
+**Custom traits:** add `custom_traits` to your catalog for domain-specific routing:
+
+```yaml
+custom_traits:
+  - name: security_audit
+    description: does this task involve security review, vulnerability scanning, or threat modeling?
+  - name: data_science
+    description: does this task involve data analysis, ML pipelines, or statistical modeling?
+
+models:
+  - id: anthropic/claude-sonnet-4-6
+    provider: anthropic
+    scores:
+      long_context: 9
+      deep_reasoning: 9
+      tool_use_accuracy: 9
+      speed_priority: 5
+      frontend_taste: 7
+      cost_efficiency: 4
+      security_audit: 9
+      data_science: 6
+```
+
+The classifier dynamically includes custom traits in its prompt. Model scores for custom traits are weighted alongside the six base traits.
+
 Verify model IDs against OpenCode's actual list:
 
 ```bash
@@ -189,6 +216,10 @@ If a model in your catalog isn't in OpenCode's list, dispatch will fail with `Pr
 
 Every route decision is persisted to `last_route_debug` in `~/.config/bramhashiv/state.json`. It includes the chosen model, ranked candidates, classifier weights, fallback state, and unavailable models. The `handleRouteCommand()` formatter can render this snapshot for a TUI `/route` command or any future wrapper that can read BramhaShiv state.
 
+**Live explanation mode:** set `BRAMHASHIV_EXPLAIN=1` to see a full scoring breakdown appended to every response — why each model was scored, what penalties applied, and which traits dominated the decision.
+
+**Dry-run mode:** set `BRAMHASHIV_DRY_RUN=1` to preview the chosen model without actually dispatching. Useful for tuning catalog scores or testing routing logic.
+
 ---
 
 ## 🧠 How routing works
@@ -196,22 +227,41 @@ Every route decision is persisted to `last_route_debug` in `~/.config/bramhashiv
 BramhaShiv operates in 5 layers, each improving routing accuracy:
 
 1. **Workspace analysis** — On activation, scans your project (up to 500 files) to detect languages, frontend/backend presence, tests, and git repo. Injected into all classification prompts for project-aware routing.
-2. **Classify** — Gemini Flash reads your task + workspace summary and outputs six trait weights in `0..1`.
-3. **Score** — Each catalog model is dot-product scored against the trait weights, then adjusted by three real-time signals:
+2. **Classify** — Gemini Flash reads your task + workspace summary + last 5 conversation turns and outputs six trait weights in `0..1`.
+3. **Score** — Each catalog model is dot-product scored against the trait weights, then adjusted by six real-time signals:
    - **Provider health:** models with high error rates or slow latency get score penalties (up to 25%).
-   - **Regeneration intelligence:** if you've regenerated this same task before, the previous model's score is penalized (escalating 5%→30%).
+   - **Regeneration intelligence:** if you've regenerated this same task before, the previous model's score is penalized (escalating 5%→30%). Uses semantic similarity (code-aware token matching + n-grams) instead of naive Jaccard.
    - **Learned adjustments:** accumulated deltas from past task outcomes auto-tune the catalog base scores over time.
-4. **Dispatch** — Top-ranked model runs the task. If rate-limited or unavailable, falls back through the ranking.
-5. **Learn** — On task completion, the outcome (success, latency, regenerations) feeds back into the learning system and health monitor for future routing decisions.
+   - **Budget guardrails:** when daily/monthly spend approaches limits, expensive models are penalized. Tracks estimated cost per task from catalog `cost_per_1k_input/output` fields.
+   - **Latency SLO:** models with EMA latency exceeding your target (`BRAMHASHIV_LATENCY_SLO_MS`) are progressively penalized.
+   - **Time-based routing:** during night hours (configurable), cost-efficiency and speed are boosted to prefer cheaper, faster models.
+4. **Dispatch** — Top-ranked model runs the task. If rate-limited or unavailable, falls back through the ranking. A/B testing mode can route a percentage of traffic to the #2 model for validation.
+5. **Learn** — On task completion, the outcome (success, latency, regenerations) feeds back into the learning system, health monitor, and budget tracker for future routing decisions.
 
 ### 🛡️ Availability filtering
 
-Two layers keep the router from picking models you can't reach:
+Three layers keep the router from picking models you can't reach:
 
 - 🔐 **At activation** — providers missing from `~/.local/share/opencode/auth.json` are dropped. No more `ProviderModelNotFoundError` or auth-not-configured failures.
-- 🚧 **During the session** — when a dispatch fails with `ProviderAuthError` or an `APIError` with status `402` / `429` / `503` / `529`, the offending model is added to the session's unavailable set. Next turns route around it. Useful when HF free quota depletes mid-session or a provider rate-limits you.
+- 🚧 **During the session** — when a dispatch fails with `ProviderAuthError` or an `APIError` with status `402` / `429` / `503` / `529`, the offending model is added to the session's unavailable set. Next turns route around it.
+- 📊 **Proactive quota management** — monitors `x-ratelimit-remaining` headers. When a model has ≤3 requests remaining, it enters a 5-minute cooldown before hitting the actual 429.
 
 Unavailable state is **per OpenCode process** — it resets when you restart. If you need it persistent, edit your catalog or use `BRAMHASHIV_PIN`.
+
+### 🤝 Team-synced learning
+
+Set `BRAMHASHIV_TEAM_STATE_PATH=/shared/drive/bramhashiv-state.json` to share learned adjustments across your team. Local learning still dominates (team deltas are dampened 50%), but new team members benefit from collective model performance history.
+
+### 📤 Import / export state
+
+Backup or migrate your routing state across machines:
+
+```typescript
+import { exportState, importState } from "bramhashiv/state-io";
+
+exportState("~/backups/bramhashiv-2026-05.json");
+importState("~/backups/bramhashiv-2026-05.json", /* merge */ true);
+```
 
 ---
 
@@ -228,9 +278,10 @@ BRAMHASHIV_LEARNING_CAP=2.0         # max absolute adjustment per model+trait
 # Health monitoring
 BRAMHASHIV_HEALTH_DECAY=0.7         # EMA alpha for latency averaging
 BRAMHASHIV_HEALTH_LATENCY_BASELINE=30000  # ms considered "slow"
+BRAMHASHIV_ALERT_HEALTH_THRESHOLD=0.5  # console warning when model health drops below this
 
 # Regeneration tracking
-BRAMHASHIV_SIMILARITY_THRESHOLD=0.7 # Jaccard threshold for task matching
+BRAMHASHIV_SIMILARITY_THRESHOLD=0.7 # semantic similarity threshold for task matching
 BRAMHASHIV_REGENERATION_TTL_MS=3600000  # how long to remember regenerations
 
 # Planner
@@ -247,13 +298,41 @@ BRAMHASHIV_ERROR_TTL_ACCOUNT_MS=43200000 # account-level quota TTL
 # Workspace scanner
 BRAMHASHIV_MAX_FILES_SCAN=500      # max files to scan for workspace analysis
 BRAMHASHIV_MAX_DEPTH_SCAN=4        # max directory depth
+
+# Budget guardrails
+BRAMHASHIV_BUDGET_DAILY_USD=50      # daily spend cap
+BRAMHASHIV_BUDGET_MONTHLY_USD=500   # monthly spend cap
+BRAMHASHIV_BUDGET_NEAR_THRESHOLD=0.8  # penalty kicks in at 80% of limit
+
+# Latency SLO
+BRAMHASHIV_LATENCY_SLO_MS=0         # target response time (0 = disabled)
+BRAMHASHIV_LATENCY_SLO_PENALTY=0.001 # penalty per ms over target
+
+# Time-based routing
+BRAMHASHIV_NIGHT_MODE_START=22      # hour to start night mode
+BRAMHASHIV_NIGHT_MODE_END=7         # hour to end night mode
+BRAMHASHIV_NIGHT_COST_BOOST=0.3     # boost cost_efficiency at night
+BRAMHASHIV_NIGHT_SPEED_BOOST=0.2    # boost speed_priority at night
+
+# A/B testing
+BRAMHASHIV_AB_TEST_PCT=0            # % of traffic to route to #2 model
+
+# Team sync
+BRAMHASHIV_TEAM_STATE_PATH=         # path to shared state file
+
+# Debug / preview
+BRAMHASHIV_EXPLAIN=0                # append scoring breakdown to responses
+BRAMHASHIV_DRY_RUN=0                # preview chosen model without dispatching
+BRAMHASHIV_DEBUG=0                  # verbose stderr debug output
 ```
+
+---
 
 ## 🔧 Development
 
 ```bash
 bun install
-bun test            # 193 unit + harness + golden-set tests
+bun test            # 216 unit + harness + golden-set tests
 bun run typecheck
 BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
 ```

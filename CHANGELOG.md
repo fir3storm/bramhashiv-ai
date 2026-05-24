@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.3.0 — 2026-05-24
+
+Major intelligence and operational upgrade. 15 new features across trust, transparency, cost control, advanced routing, and team collaboration.
+
+### Added
+
+**Trust & Transparency**
+- **Routing Explanation Engine** (`src/explanation.ts`). Set `BRAMHASHIV_EXPLAIN=1` to append a full scoring breakdown to every response — trait contributions, learned adjustments, health/regeneration/budget/SLO penalties, and why each model was ranked. Explanations are persisted in `last_route_debug` for offline analysis.
+- **Semantic Task Clustering** (`src/semantic-similarity.ts`). Replaced naive Jaccard with code-aware similarity: camelCase/snake_case normalization, file extension extraction, quoted identifier matching, character 3-gram cosine similarity, and structural features (line count ratio, code block presence). `BRAMHASHIV_SEMANTIC_SIMILARITY=0` falls back to legacy Jaccard.
+- **Conversation-Aware Routing** (`src/pipeline.ts`). The classifier now receives the last 5 conversation turns, giving it context for follow-up questions like "now refactor that" or "explain why you chose X".
+
+**Cost Control**
+- **Budget Guardrails** (`src/budget.ts`). Tracks daily and monthly estimated spend from catalog `cost_per_1k_input/output` fields. Penalizes expensive models as spend approaches configurable limits (`BRAMHASHIV_BUDGET_DAILY_USD`, `BRAMHASHIV_BUDGET_MONTHLY_USD`). Near-limit (80%) applies 15% penalty; over-limit applies 50%. Resets automatically on day/month boundaries.
+- **Latency SLO Mode** (`src/scorer.ts`). Set `BRAMHASHIV_LATENCY_SLO_MS` to a target response time. Models with EMA latency exceeding the target are progressively penalized (`penalty_per_ms_over`). Keeps routing responsive under performance constraints.
+- **Proactive Quota Management** (`src/plugin-server.ts`). Monitors `x-ratelimit-remaining` headers on every completion. When a model has ≤3 requests remaining, it enters a 5-minute cooldown before the actual 429 hits. Prevents cascading failures during quota exhaustion.
+
+**Advanced Routing**
+- **Dry-Run / Preview Mode** (`src/plugin-server.ts`). Set `BRAMHASHIV_DRY_RUN=1` to preview the chosen model and its dominant traits without dispatching. Useful for tuning catalog scores and testing routing logic.
+- **Custom Trait Dimensions** (`src/types.ts`, `src/catalog.ts`, `src/classifier-prompt.ts`). Add `custom_traits` to `catalog.yaml` with arbitrary names and descriptions. The classifier dynamically includes them in its prompt; model scores for custom traits are weighted alongside the six base traits. Enables domain-specific routing (security audit, data science, etc.).
+- **Multi-Model Ensemble** (`src/ensemble.ts`). Detects critical tasks (high `deep_reasoning` + `tool_use_accuracy`) and prepares ensemble dispatch to primary + fallback models. Foundation for future parallel execution.
+- **Time-Based & Scheduled Routing** (`src/time-based.ts`). During configurable night hours (`BRAMHASHIV_NIGHT_MODE_START`/`END`), automatically boosts `cost_efficiency` and `speed_priority` to prefer cheaper, faster models. Useful for background batch jobs.
+- **A/B Testing Mode** (`src/router.ts`). Set `BRAMHASHIV_AB_TEST_PCT` to route a percentage of traffic to the #2 ranked model instead of #1. Validates that the scoring function is actually picking the best model by comparing outcomes.
+
+**Ecosystem & Collaboration**
+- **Team-Synced Learning** (`src/team-sync.ts`). Set `BRAMHASHIV_TEAM_STATE_PATH` to a shared file (network drive, git-tracked, etc.). Local learning dominates (team deltas dampened 50%), but new team members benefit from collective performance history. Writes atomically on every state persistence.
+- **Project-Level Catalog Overrides** (`src/catalog.ts`). Drop `.bramhashiv/catalog.yaml` in any project root. It merges with the global catalog by model ID — project-specific scores override global ones. Auto-detected up to 5 parent directories.
+- **Model Performance Alerts** (`src/alerts.ts`). Console warnings when any model's health score drops below `BRAMHASHIV_ALERT_HEALTH_THRESHOLD` (default 0.5). Alerts fire once per model until health recovers, preventing log spam.
+- **Import/Export State** (`src/state-io.ts`). `exportState(path)` and `importState(path, merge?)` for backup, migration, and team onboarding. Export includes version and timestamp; import validates schema and supports merge mode for combining multiple state files.
+
+### Changed
+- `src/config.ts` — centralized all new feature hyperparameters as `BRAMHASHIV_*` env vars with sensible defaults.
+- `src/scorer.ts` — `ModelScoreExplanation` gains `budget_penalty` and `slo_penalty` fields; `ScoreResult` explanations sorted to match ranking order.
+- `src/router.ts` — `RouteDecision` gains `ab_test` flag; A/B testing integrated into fallback path.
+- `src/classifier.ts` — accepts optional `catalog` parameter to build dynamic system prompts with custom traits.
+- `src/regeneration-tracker.ts` — now uses `computeTaskSimilarity()` from `semantic-similarity.ts` instead of inline Jaccard.
+- `src/plugin-server.ts` — hooks `message.updated` to read rate-limit headers; emits dry-run text parts; integrates team sync writes; health alert checks on success and error paths.
+
+### Tests
+- 2 new test files: `tests/budget.test.ts` (12 cases), `tests/semantic-similarity.test.ts` (9 cases). Total: 216 pass / 0 fail / 1 skip.
+
+---
+
 ## 0.2.0 — 2026-04-30
 
 Major intelligence upgrade. Five new adaptive routing layers make BramhaShiv self-tuning.
@@ -26,6 +68,8 @@ Major intelligence upgrade. Five new adaptive routing layers make BramhaShiv sel
 - `telemetry.ts`: new `logOutcome()` method writes `TaskOutcome` events to `overrides.log`.
 - `classifier-prompt.ts`: `buildClassifierUserPrompt` accepts optional workspace summary parameter.
 
+---
+
 ## 0.1.5 — 2026-04-27
 
 Dogfood-polish release. Four real-world fixes caught while routing actual coding tasks through OpenCode TUI.
@@ -45,6 +89,8 @@ Dogfood-polish release. Four real-world fixes caught while routing actual coding
 - New module `src/debug.ts` with no-op `dbg()` when env var unset.
 - Tests: 94/94 green (5 new tests for persistence + TTL pruning).
 
+---
+
 ## 0.1.4 — 2026-04-27
 
 ### Fixed
@@ -52,6 +98,8 @@ Dogfood-polish release. Four real-world fixes caught while routing actual coding
 
 ### Spotted while dogfooding
 - TUI sessions sometimes hit the classifier timeout under load → fall back to neutral weights → Kimi wins the score battle (high all-around catalog scores). Tracked for v0.1.5 (likely a higher classifier timeout + anti-Kimi tilt in the fallback weights).
+
+---
 
 ## 0.1.3 — 2026-04-26
 
@@ -75,6 +123,8 @@ Dogfood-polish release. Four real-world fixes caught while routing actual coding
 - End-to-end smoke test against live OpenCode 1.14.24 with all four providers active. Pin path + auto-routing both confirmed.
 - Catalog grew 8 → 19 models across 5 providers, all IDs verified against `opencode models <provider>` listings.
 
+---
+
 ## 0.1.2 — 2026-04-26
 
 ### Added
@@ -87,6 +137,8 @@ Dogfood-polish release. Four real-world fixes caught while routing actual coding
   - Anthropic models in catalog caused dispatch errors when the user hadn't authed Anthropic.
   - HuggingFace 402 (free quota depleted) caused repeated failures with no fallback.
 
+---
+
 ## 0.1.1 — 2026-04-25
 
 ### Fixed
@@ -98,6 +150,8 @@ Dogfood-polish release. Four real-world fixes caught while routing actual coding
 ### Added
 - Apache 2.0 LICENSE.
 - Author + repository fields in `package.json`.
+
+---
 
 ## 0.1.0 — 2026-04-24
 

@@ -34,9 +34,9 @@ describe("scoreAndRank", () => {
     const cat: Catalog = {
       models: [model("a", { long_context: 3 }), model("b", { long_context: 9 })],
     };
-    const ranked = scoreAndRank(cat, weights);
-    expect(ranked[0]!.model.id).toBe("b");
-    expect(ranked[1]!.model.id).toBe("a");
+    const result = scoreAndRank(cat, weights);
+    expect(result.ranked[0]!.model.id).toBe("b");
+    expect(result.ranked[1]!.model.id).toBe("a");
   });
 
   test("filters out models failing hard filters when relevant trait dominant", () => {
@@ -47,8 +47,8 @@ describe("scoreAndRank", () => {
       ],
     };
     const w = { ...weights, long_context: 0.8 };
-    const ranked = scoreAndRank(cat, w);
-    expect(ranked.map((r) => r.model.id)).toEqual(["long"]);
+    const result = scoreAndRank(cat, w);
+    expect(result.ranked.map((r) => r.model.id)).toEqual(["long"]);
   });
 
   test("does not apply long-context filter when trait weight is low", () => {
@@ -56,8 +56,8 @@ describe("scoreAndRank", () => {
       models: [model("short", { long_context: 9 }, { min_context: 50000 })],
     };
     const w = { ...weights, long_context: 0.3 };
-    const ranked = scoreAndRank(cat, w);
-    expect(ranked).toHaveLength(1);
+    const result = scoreAndRank(cat, w);
+    expect(result.ranked).toHaveLength(1);
   });
 
   test("tie-breaks by cost_efficiency descending", () => {
@@ -67,8 +67,8 @@ describe("scoreAndRank", () => {
         model("expensive", { long_context: 5, cost_efficiency: 1 }),
       ],
     };
-    const ranked = scoreAndRank(cat, weights);
-    expect(ranked[0]!.model.id).toBe("cheap");
+    const result = scoreAndRank(cat, weights);
+    expect(result.ranked[0]!.model.id).toBe("cheap");
   });
 
   test("returns empty list if all models filtered", () => {
@@ -76,7 +76,37 @@ describe("scoreAndRank", () => {
       models: [model("short", {}, { min_context: 50000 })],
     };
     const w = { ...weights, long_context: 0.9 };
-    const ranked = scoreAndRank(cat, w);
-    expect(ranked).toEqual([]);
+    const result = scoreAndRank(cat, w);
+    expect(result.ranked).toEqual([]);
+  });
+
+  test("returns explanations for all models including filtered", () => {
+    const cat: Catalog = {
+      models: [
+        model("short", { long_context: 9 }, { min_context: 50000 }),
+        model("long", { long_context: 8 }, { min_context: 200000 }),
+      ],
+    };
+    const w = { ...weights, long_context: 0.8 };
+    const result = scoreAndRank(cat, w);
+    expect(result.explanations).toHaveLength(2);
+    const shortExp = result.explanations.find((e) => e.model_id === "short");
+    const longExp = result.explanations.find((e) => e.model_id === "long");
+    expect(shortExp!.hard_filter_excluded).toBe(true);
+    expect(longExp!.hard_filter_excluded).toBeUndefined();
+  });
+
+  test("explanations include trait breakdowns", () => {
+    const cat: Catalog = {
+      models: [model("a", { long_context: 3 })],
+    };
+    const result = scoreAndRank(cat, weights);
+    const exp = result.explanations[0]!;
+    expect(exp.model_id).toBe("a");
+    expect(exp.trait_breakdown).toHaveLength(6);
+    const longContextTrait = exp.trait_breakdown.find((t) => t.trait === "long_context");
+    expect(longContextTrait!.base_score).toBe(3);
+    expect(longContextTrait!.weight).toBe(1);
+    expect(longContextTrait!.contribution).toBe(3);
   });
 });

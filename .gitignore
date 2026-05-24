@@ -33,3 +33,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Local dev / agent artifacts
+.browser-sessions/
+.claude/
+.commandcode/
