@@ -54,6 +54,8 @@ export interface ClassifierResult {
   weights: TraitWeights;
   fallback: boolean;
   raw?: string;
+  /** Custom trait weights from the classifier (only present when catalog has custom_traits). */
+  customTraitWeights?: Record<string, number>;
 }
 
 export interface RankedModel {
@@ -62,7 +64,7 @@ export interface RankedModel {
 }
 
 export interface TraitBreakdown {
-  trait: TraitName;
+  trait: TraitName | string;
   weight: number;
   base_score: number;
   learned_adjustment: number;
@@ -76,6 +78,7 @@ export interface ModelScoreExplanation {
   health_penalty: number;
   regeneration_penalty: number;
   budget_penalty?: number;
+  slo_penalty?: number;
   hard_filter_excluded?: boolean;
 }
 

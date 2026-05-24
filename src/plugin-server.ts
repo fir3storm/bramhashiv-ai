@@ -31,6 +31,7 @@ import { heuristicShouldPlan, planTask } from "./planner.js";
 import { dbg } from "./debug.js";
 import { formatExplanationForDisplay } from "./explanation.js";
 import { recordSpend, estimateTaskCost, getBudgetStatus } from "./budget.js";
+import { detectIndiaContext, buildIndiaClassifierHint } from "./india-context.js";
 import {
   CATALOG_PATH,
   STATE_PATH,
@@ -214,6 +215,8 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
           conversationHistory.push(text);
           if (conversationHistory.length > 20) conversationHistory.shift();
 
+          const indiaSignal = detectIndiaContext(text);
+          const indiaHint = buildIndiaClassifierHint(indiaSignal);
           const { decision, classifier } = await runRouterPipeline({
             text,
             catalog: watcher.current(),
@@ -223,6 +226,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             workspaceSummary,
             scoringCtx,
             conversationHistory: [...conversationHistory],
+            indiaHint,
           });
 
           const dryRun = process.env.BRAMHASHIV_DRY_RUN === "1";

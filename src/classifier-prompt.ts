@@ -39,8 +39,12 @@ export function buildClassifierUserPrompt(
   task: string,
   conversationSnippet?: string,
   workspaceSummary?: string,
+  indiaContextHint?: string,
 ): string {
   let out = "";
+  if (indiaContextHint && indiaContextHint.trim()) {
+    out += `${indiaContextHint.trim()}\n\n`;
+  }
   if (workspaceSummary && workspaceSummary.trim()) {
     out += `WORKSPACE CONTEXT:\n${workspaceSummary.trim()}\n\n`;
   }

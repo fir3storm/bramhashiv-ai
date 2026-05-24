@@ -13,6 +13,8 @@ export interface PipelineInput {
   workspaceSummary?: string;
   scoringCtx?: ScoringContext;
   conversationHistory?: string[];
+  /** India-context classifier hint (built from detectIndiaContext). */
+  indiaHint?: string;
 }
 
 export interface PipelineResult {
@@ -54,6 +56,7 @@ export async function runRouterPipeline(input: PipelineInput): Promise<PipelineR
           workspaceSummary: input.workspaceSummary,
           conversationSnippet,
           catalog: input.catalog,
+          indiaHint: input.indiaHint,
         });
 
   const timeAdjustedClassifier: ClassifierResult = {
@@ -66,7 +69,10 @@ export async function runRouterPipeline(input: PipelineInput): Promise<PipelineR
     classifier: timeAdjustedClassifier,
     override: { pinned_model_id: input.pinnedModelId },
     unavailable: input.unavailable,
-    scoringCtx: input.scoringCtx,
+    scoringCtx: {
+      ...input.scoringCtx,
+      customTraitWeights: classifier.customTraitWeights,
+    },
   });
 
   return { decision, classifier };

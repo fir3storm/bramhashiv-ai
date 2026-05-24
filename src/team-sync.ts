@@ -35,13 +35,13 @@ export function mergeWithTeamState(local: PluginState, team: PluginState | null)
   if (!team) return local;
 
   // Dampen team adjustments by 50% so local learning dominates
-  const dampened = team.score_adjustments.map((a) => ({
+  const dampened = team.learned_adjustments.map((a) => ({
     ...a,
     delta: a.delta * 0.5,
   }));
 
-  const localIds = new Set(local.score_adjustments.map((a) => `${a.model_id}:${a.trait}`));
-  const merged = [...local.score_adjustments];
+  const localIds = new Set(local.learned_adjustments.map((a) => `${a.model_id}:${a.trait}`));
+  const merged = [...local.learned_adjustments];
 
   for (const adj of dampened) {
     const key = `${adj.model_id}:${adj.trait}`;
@@ -52,7 +52,7 @@ export function mergeWithTeamState(local: PluginState, team: PluginState | null)
 
   return {
     ...local,
-    score_adjustments: merged,
-    labels: [...new Set([...local.labels, ...team.labels])],
+    learned_adjustments: merged,
+    last_label: local.last_label ?? team.last_label,
   };
 }

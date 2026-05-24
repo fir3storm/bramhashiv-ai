@@ -14,6 +14,8 @@ export interface ClassifyOptions {
   timeoutMs?: number;
   workspaceSummary?: string;
   catalog?: Catalog;
+  /** India-context hint for Indic-language or India-stack tasks. */
+  indiaHint?: string;
 }
 
 const FALLBACK_WEIGHTS: TraitWeights = {
@@ -61,18 +63,18 @@ function parseWeights(raw: string, catalog?: Catalog): TraitWeights | null {
     result[trait as TraitName] = clamp01(v);
   }
 
-  // Include custom traits if present in catalog
+  // Collect custom trait weights
+  const customTraitWeights: Record<string, number> = {};
   if (catalog?.custom_traits) {
     for (const ct of catalog.custom_traits) {
       const v = p[ct.name];
       if (typeof v === "number") {
-        // Store custom trait weight in a way that scoring can use it
-        // For now, we ignore custom traits in scoring but accept them from classifier
+        customTraitWeights[ct.name] = clamp01(v);
       }
     }
   }
 
-  return result as TraitWeights;
+  return { base: result as TraitWeights, custom: customTraitWeights };
 }
 
 export async function classify(
@@ -81,7 +83,7 @@ export async function classify(
 ): Promise<ClassifierResult> {
   const timeoutMs = opts.timeoutMs ?? cfg.timeout_ms;
   const systemPrompt = buildClassifierSystemPrompt(opts.catalog);
-  const userPrompt = buildClassifierUserPrompt(task, opts.conversationSnippet, opts.workspaceSummary);
+  const userPrompt = buildClassifierUserPrompt(task, opts.conversationSnippet, opts.workspaceSummary, opts.indiaHint);
 
   let raw: string;
   try {
@@ -95,9 +97,14 @@ export async function classify(
     return { weights: { ...FALLBACK_WEIGHTS }, fallback: true };
   }
 
-  const weights = parseWeights(raw, opts.catalog);
-  if (!weights) {
+  const parsed = parseWeights(raw, opts.catalog);
+  if (!parsed) {
     return { weights: { ...FALLBACK_WEIGHTS }, fallback: true, raw };
   }
-  return { weights, fallback: false, raw };
+  return {
+    weights: parsed.base,
+    customTraitWeights: Object.keys(parsed.custom).length > 0 ? parsed.custom : undefined,
+    fallback: false,
+    raw,
+  };
 }

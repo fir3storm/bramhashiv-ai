@@ -12,7 +12,7 @@ import type {
 } from "./types.js";
 import { createEmptyBudgetState } from "./budget.js";
 
-export interface SharedState {
+export interface PluginState {
   pinned_model_id: string | null;
   last_label: string | null;
   last_classifier: ClassifierResult | null;
@@ -25,7 +25,10 @@ export interface SharedState {
   budget?: BudgetState;
 }
 
-export const EMPTY_STATE: SharedState = {
+/** @deprecated use PluginState */
+export type SharedState = PluginState;
+
+export const EMPTY_STATE: PluginState = {
   pinned_model_id: null,
   last_label: null,
   last_classifier: null,

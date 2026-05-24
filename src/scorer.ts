@@ -1,4 +1,4 @@
-import { TRAIT_NAMES, type Catalog, type ModelEntry, type RankedModel, type TraitWeights } from "./types.js";
+import { TRAIT_NAMES, type Catalog, type CustomTrait, type ModelEntry, type RankedModel, type TraitWeights } from "./types.js";
 import { getHealthPenalty } from "./health-monitor.js";
 import { getRegenerationPenalty } from "./regeneration-tracker.js";
 import { getAdjustmentScore } from "./learning.js";
@@ -14,11 +14,15 @@ export interface ScoringContext {
   adjustments?: ScoreAdjustment[];
   taskExcerpt?: string;
   budgetState?: BudgetState;
+  /** Custom trait weights from the classifier (key = trait name, value = 0..1). */
+  customTraitWeights?: Record<string, number>;
 }
 
 export interface ScoreResult {
   ranked: RankedModel[];
   explanations: ModelScoreExplanation[];
+  /** Custom traits present in the catalog that were scored */
+  customTraits?: string[];
 }
 
 function passesHardFilters(m: ModelEntry, w: TraitWeights): boolean {
@@ -68,6 +72,11 @@ export function scoreAndRank(
 ): ScoreResult {
   const ranked: RankedModel[] = [];
   const explanations: ModelScoreExplanation[] = [];
+  const customTraitWeights = ctx?.customTraitWeights ?? {};
+  const catalogCustomTraits = catalog.custom_traits ?? [];
+  const scoredCustomTraits = catalogCustomTraits
+    .filter((ct) => customTraitWeights[ct.name] !== undefined)
+    .map((ct) => ct.name);
 
   for (const model of catalog.models) {
     if (!passesHardFilters(model, weights)) {
@@ -93,6 +102,24 @@ export function scoreAndRank(
         trait,
       );
       score += weights[trait] * traitScore;
+    }
+
+    // Custom traits: use classifier weight × model extended score (default 5).
+    // Per-model custom trait scores are a future extension; for now all models
+    // get the same base, so custom traits act as a uniform trait boost.
+    const customTraitBreakdowns: TraitBreakdown[] = [];
+    for (const traitName of scoredCustomTraits) {
+      const w = customTraitWeights[traitName]!;
+      const modelScore = (model as Record<string, unknown>).scores?.[traitName] as number ?? 5;
+      const contrib = w * modelScore;
+      score += contrib;
+      customTraitBreakdowns.push({
+        trait: traitName,
+        weight: w,
+        base_score: modelScore,
+        learned_adjustment: 0,
+        contribution: contrib,
+      });
     }
 
     let healthPenalty = 0;
@@ -129,7 +156,7 @@ export function scoreAndRank(
     explanations.push({
       model_id: model.id,
       final_score: score,
-      trait_breakdown: traitBreakdown,
+      trait_breakdown: [...traitBreakdown, ...customTraitBreakdowns],
       health_penalty: healthPenalty,
       regeneration_penalty: regenPenalty,
       budget_penalty: budgetPenalty > 0 ? budgetPenalty : undefined,
