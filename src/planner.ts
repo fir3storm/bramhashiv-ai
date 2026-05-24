@@ -1,6 +1,6 @@
 import type { TaskPlan, TraitWeights, TraitName } from "./types.js";
 import { TRAIT_NAMES } from "./types.js";
-import { PLANNER_SYSTEM_PROMPT, buildPlannerUserPrompt } from "./planner-prompt.js";
+import { PLANNER_SYSTEM_PROMPT, buildPlannerUserPrompt, buildPlannerSystemPrompt } from "./planner-prompt.js";
 import type { CompletionRunner } from "./classifier.js";
 import { planner as cfg } from "./config.js";
 
@@ -84,13 +84,17 @@ export async function planTask(
   task: string,
   workspaceSummary: string,
   runCompletion: CompletionRunner,
+  customTraitNames?: string[],
 ): Promise<TaskPlan> {
+  const systemPrompt = customTraitNames?.length
+    ? buildPlannerSystemPrompt(customTraitNames)
+    : PLANNER_SYSTEM_PROMPT;
   const userPrompt = buildPlannerUserPrompt(task, workspaceSummary);
 
   let raw: string;
   try {
     raw = await Promise.race([
-      runCompletion({ systemPrompt: PLANNER_SYSTEM_PROMPT, userPrompt }),
+      runCompletion({ systemPrompt, userPrompt }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("planner timeout")), cfg.timeout_ms),
       ),

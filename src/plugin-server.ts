@@ -24,6 +24,7 @@ import {
   recordSuccess,
 } from "./health-monitor.js";
 import { checkHealthAlert } from "./alerts.js";
+import { sendTelegramAlert, formatHealthAlert, alreadySentRecently, markSent, isTelegramConfigured } from "./telegram-alerts.js";
 import { recordRegenerationHit, getRegenerationCount } from "./regeneration-tracker.js";
 import { recordTaskOutcome, updateAdjustments } from "./learning.js";
 import { readTeamState, writeTeamState, mergeWithTeamState } from "./team-sync.js";
@@ -38,6 +39,22 @@ import {
   TELEMETRY_PATH,
   ensureUserCatalog,
 } from "./config-paths.js";
+import { alerts } from "./config.js";
+
+/** Handles health alert: logs to console and sends Telegram if configured. */
+async function handleHealthAlert(record: HealthRecord): Promise<void> {
+  const alert = checkHealthAlert(record);
+  if (!alert) return;
+  console.warn(alert);
+
+  // Telegram: rate-limited to one per model per window
+  if (isTelegramConfigured() && !alreadySentRecently(record.model_id)) {
+    const msg = formatHealthAlert(record.model_id, record.health_score, alerts.health_drop_threshold);
+    markSent(record.model_id);
+    // Fire-and-forget; non-fatal if it fails
+    sendTelegramAlert(msg).catch(() => {});
+  }
+}
 
 export interface ServerPluginConfig {
   catalogPath: string;
@@ -194,7 +211,8 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
           let plan = null;
           if (!pinned && text && heuristicShouldPlan(text) && config.runner) {
             try {
-              plan = await planTask(text, workspaceSummary, config.runner);
+              const catalog = watcher.current();
+              plan = await planTask(text, workspaceSummary, config.runner, catalog.custom_traits?.map((ct) => ct.name));
               if (plan.is_complex && plan.subtasks.length > 1) {
                 dbg("planner", { complex: true, subtasks: plan.subtasks.length, reasoning: plan.reasoning });
               }
@@ -267,6 +285,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             })),
             planComplex: plan?.is_complex ?? false,
             planSubtasks: plan?.subtasks.length ?? 0,
+            ensembleFallback: decision.ensemble_fallback?.id ?? null,
           });
 
           // ── Emit routing explanation if enabled ─────────────────────────
@@ -370,8 +389,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
                 const h = findOrCreateHealth(healthRecords, provider, lastRoutedModelId);
                 healthRecords = h.records;
                 healthRecords[h.index] = recordError(h.record);
-                const alert = checkHealthAlert(healthRecords[h.index]!);
-                if (alert) console.warn(alert);
+                await handleHealthAlert(healthRecords[h.index]!);
               }
             }
 
@@ -445,8 +463,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               const h = findOrCreateHealth(healthRecords, provider, lastDecisionId);
               healthRecords = h.records;
               healthRecords[h.index] = recordSuccess(h.record, latencyMs);
-              const alert = checkHealthAlert(healthRecords[h.index]!);
-              if (alert) console.warn(alert);
+              await handleHealthAlert(healthRecords[h.index]!);
             }
 
             const outcome: TaskOutcome = {

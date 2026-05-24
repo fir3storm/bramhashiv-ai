@@ -43,6 +43,11 @@ export interface ModelEntry {
 export interface CustomTrait {
   name: string;
   description: string;
+  /**
+   * Per-model scores for this custom trait (model_id → score 0-10).
+   * Models not listed here default to score 5 in the scorer.
+   */
+  scores?: Record<string, number>;
 }
 
 export interface Catalog {
@@ -101,6 +106,8 @@ export interface RouteDecision {
   override_source?: "user" | "fallback";
   unavailable_exhausted?: boolean;
   ab_test?: boolean;
+  /** Set when task is critical (deep_reasoning + tool_use >= 1.4). Silent fallback model to use if primary fails. */
+  ensemble_fallback?: ModelEntry;
   explanation?: RouteExplanation;
 }
 

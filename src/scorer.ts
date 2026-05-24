@@ -104,13 +104,13 @@ export function scoreAndRank(
       score += weights[trait] * traitScore;
     }
 
-    // Custom traits: use classifier weight × model extended score (default 5).
-    // Per-model custom trait scores are a future extension; for now all models
-    // get the same base, so custom traits act as a uniform trait boost.
+    // Custom traits: look up per-model score from catalog, fallback to 5.
     const customTraitBreakdowns: TraitBreakdown[] = [];
     for (const traitName of scoredCustomTraits) {
       const w = customTraitWeights[traitName]!;
-      const modelScore = (model as Record<string, unknown>).scores?.[traitName] as number ?? 5;
+      // Look up per-model score from the catalog custom trait definition
+      const ctDef = catalogCustomTraits.find((ct) => ct.name === traitName);
+      const modelScore = ctDef?.scores?.[model.id] ?? 5;
       const contrib = w * modelScore;
       score += contrib;
       customTraitBreakdowns.push({

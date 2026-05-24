@@ -262,3 +262,63 @@ models:
       speed_priority: 6
       frontend_taste: 6
       cost_efficiency: 5
+
+# ── Custom trait dimensions (per-model scores) ────────────────────────────────
+# Each trait has a description and per-model scores (0-10).
+# Models not listed default to score 5.
+# These are automatically included in the classifier prompt when detected.
+
+custom_traits:
+  # India + multilingual: strongest on Kimi K2.6 and Gemini 3 Pro
+  - name: multilingual
+    description: Tasks involving Indic languages (Hindi, Bengali, Tamil, Telugu, etc.) or requiring understanding of multilingual codebases
+    scores:
+      huggingface/moonshotai/Kimi-K2.6: 9
+      huggingface/moonshotai/Kimi-K2-Thinking: 8
+      huggingface/deepseek-ai/DeepSeek-V3.2: 7
+      google/gemini-3-pro-preview: 8
+      google/gemini-flash-latest: 7
+      anthropic/claude-opus-4-7: 6
+      anthropic/claude-sonnet-4-6: 6
+      openai/gpt-5.5: 7
+      huggingface/XiaomiMiMo/MiMo-V2-Flash: 6
+
+  # Code explanation / documentation — Codex, Sonnet, Kimi lead
+  - name: code_explanation
+    description: Explaining code snippets, architecture decisions, or teaching programming concepts
+    scores:
+      openai/gpt-5.3-codex: 10
+      anthropic/claude-sonnet-4-6: 9
+      huggingface/moonshotai/Kimi-K2.6: 8
+      openai/gpt-5.5: 9
+      anthropic/claude-opus-4-7: 8
+
+  # Security audit — R1 variants and Opus lead
+  - name: security_audit
+    description: Vulnerability analysis, penetration testing review, secure coding patterns, access control review
+    scores:
+      huggingface/deepseek-ai/DeepSeek-R1-0528: 10
+      huggingface/moonshotai/Kimi-K2-Thinking: 9
+      huggingface/Qwen/Qwen3-Next-80B-A3B-Thinking: 8
+      anthropic/claude-opus-4-7: 8
+      google/gemini-3-pro-preview: 7
+
+  # India context: UPI, GST, Aadhaar integrations — Gemini and Kimi lead
+  - name: indian_context
+    description: Tasks involving Indian government APIs (UPI, Aadhaar, GST, PAN, DigiLocker, IRCTC) or Indian business logic
+    scores:
+      google/gemini-3-pro-preview: 9
+      huggingface/moonshotai/Kimi-K2.6: 8
+      huggingface/moonshotai/Kimi-K2-Thinking: 8
+      huggingface/deepseek-ai/DeepSeek-V3.2: 7
+      openai/gpt-5.5: 7
+
+  # Data analysis / SQL / analytics — Codex and Sonnet lead
+  - name: data_analysis
+    description: SQL query generation, data pipeline tasks, analytics queries, database schema design
+    scores:
+      openai/gpt-5.3-codex: 10
+      anthropic/claude-sonnet-4-6: 9
+      anthropic/claude-opus-4-7: 9
+      huggingface/deepseek-ai/DeepSeek-R1-0528: 8
+      huggingface/zai-org/GLM-4.7: 7

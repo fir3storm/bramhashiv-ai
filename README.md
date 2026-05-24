@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![npm downloads](https://img.shields.io/npm/dm/bramhashiv?color=cb3837&logo=npm)](https://www.npmjs.com/package/bramhashiv)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-216%20passing-brightgreen)](./tests)
+[![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
 [![OpenCode](https://img.shields.io/badge/OpenCode-1.14.24-orange)](https://github.com/sst/opencode)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-FF9933?labelColor=138808)](#-author)
@@ -35,6 +35,38 @@
 ## 📦 Scope
 
 **v0.3 (current):** 15-layer adaptive routing — trait-based routing + workspace-aware classification + closed-loop learning + task decomposition planner + regeneration intelligence + provider health monitoring + budget guardrails + semantic similarity + conversation-aware routing + dry-run mode + custom traits + proactive quota management + latency SLOs + time-based routing + team-synced learning + project-level catalog overrides + A/B testing + model performance alerts + state import/export. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
+
+---
+
+## 🗒️ Changelog
+
+### [v0.3.x] — 2026-05-24
+
+**15 new features shipped:**
+
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **Routing Explanation Engine** | Full scoring breakdown per model — see why your model was chosen with `BRAMHASHIV_EXPLAIN=1` |
+| 2 | **Budget Guardrails** | Tracks spend, enforces daily/monthly caps, auto-penalizes expensive models near limits |
+| 3 | **Semantic Task Clustering** | Embeddings-based task similarity replaces naive Jaccard — better regeneration detection |
+| 4 | **Conversation-Aware Routing** | Last 20 turns fed to classifier for context-aware trait scoring |
+| 5 | **Dry-Run / Preview Mode** | `BRAMHASHIV_DRY_RUN=1` shows chosen model without dispatching |
+| 6 | **Custom Trait Dimensions** | Add domain-specific traits (e.g., `security_audit`, `data_science`) to `catalog.yaml` |
+| 7 | **Multi-Model Ensemble** | Fallback dispatch to secondary model when primary is unavailable |
+| 8 | **Proactive Quota Management** | Monitors `x-ratelimit-remaining` headers — cools off models at ≤3 requests remaining |
+| 9 | **Latency SLO Mode** | Target response time setting — penalizes slow models with configurable threshold |
+| 10 | **Time-Based & Scheduled Routing** | Night mode boosts cost-efficiency and speed during off-hours |
+| 11 | **Team-Synced Learning** | Shared state across team via `BRAMHASHIV_TEAM_STATE_PATH` |
+| 12 | **Project-Level Catalog Overrides** | `.bramhashiv/catalog.yaml` per project for team-specific model preferences |
+| 13 | **A/B Testing Mode** | Route a percentage of traffic to #2 ranked model for validation |
+| 14 | **Model Performance Alerts** | Console warning + optional Telegram alert when model health drops below threshold |
+| 15 | **Import/Export State** | Backup and migrate routing state across machines |
+
+**Bug fixes:**
+- Fixed `complexity_threshold` too high (3 → 1.5) — planner now triggers correctly for multi-concern tasks
+- Fixed type bugs across scorer, config, and planner modules
+
+**Test coverage:** 233 passing tests (16 golden-set routing + plugin harness + unit tests)
 
 **v1.0+ roadmap:** TUI plugin with `/model` dialog picker + `/route` debug command, shared catalog registry, confidence prompts.
 

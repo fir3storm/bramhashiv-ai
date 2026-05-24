@@ -64,7 +64,7 @@ export const workspace = {
 
 export const planner = {
   timeout_ms: envNum("BRAMHASHIV_PLANNER_TIMEOUT_MS", 10000),
-  complexity_threshold: envNum("BRAMHASHIV_COMPLEXITY_THRESHOLD", 3),
+  complexity_threshold: envNum("BRAMHASHIV_COMPLEXITY_THRESHOLD", 1.5),
 } as const;
 
 export const classifier = {
@@ -102,8 +102,20 @@ export const timeBased = {
   night_end_hour: envNum("BRAMHASHIV_NIGHT_MODE_END", 7),
   night_cost_boost: envNum("BRAMHASHIV_NIGHT_COST_BOOST", 0.3),
   night_speed_boost: envNum("BRAMHASHIV_NIGHT_SPEED_BOOST", 0.2),
+  // IST peak hours (India AI usage spike — 6pm to 11pm IST = UTC+5:30)
+  india_peak_start_hour: envNum("BRAMHASHIV_INDIA_PEAK_HOURS_START", 18),
+  india_peak_end_hour: envNum("BRAMHASHIV_INDIA_PEAK_HOURS_END", 23),
+  india_peak_cost_boost: envNum("BRAMHASHIV_INDIA_PEAK_COST_BOOST", 0.3),
 } as const;
 
 export const alerts = {
   health_drop_threshold: envNum("BRAMHASHIV_ALERT_HEALTH_THRESHOLD", 0.5),
+  telegram_bot_token: envString("BRAMHASHIV_TELEGRAM_BOT_TOKEN", ""),
+  telegram_chat_id: envString("BRAMHASHIV_TELEGRAM_CHAT_ID", ""),
+  telegram_rate_limit_ms: envNum("BRAMHASHIV_TELEGRAM_RATE_LIMIT_MS", 600_000),
+} as const;
+
+export const pricing = {
+  display_currency: (envString("BRAMHASHIV_DISPLAY_CURRENCY", "USD") as "USD" | "INR"),
+  usd_to_inr_rate: envNum("BRAMHASHIV_USD_TO_INR_RATE", 83.0),
 } as const;

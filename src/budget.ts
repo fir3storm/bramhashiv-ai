@@ -1,5 +1,5 @@
 import type { BudgetState, BudgetSpendRecord, ModelEntry } from "./types.js";
-import { budget as cfg } from "./config.js";
+import { budget as cfg, pricing } from "./config.js";
 
 function getToday(): string {
   const d = new Date();
@@ -51,6 +51,22 @@ export function estimateTaskCost(model: ModelEntry, inputTokens?: number, output
   return inCost + outCost;
 }
 
+export interface CostBreakdown {
+  cost_usd: number;
+  cost_inr: number;
+  rate: number;
+}
+
+/** Estimate task cost in both USD and INR. */
+export function estimateTaskCostINR(model: ModelEntry, inputTokens?: number, outputTokens?: number): CostBreakdown {
+  const cost_usd = estimateTaskCost(model, inputTokens, outputTokens);
+  return {
+    cost_usd,
+    cost_inr: cost_usd * pricing.usd_to_inr_rate,
+    rate: pricing.usd_to_inr_rate,
+  };
+}
+
 export function recordSpend(
   state: BudgetState,
   model: ModelEntry,
@@ -94,7 +110,10 @@ export function getBudgetPenalty(state: BudgetState, model: ModelEntry, estimate
   return 0;
 }
 
-export function getBudgetStatus(state: BudgetState): {
+export function getBudgetStatus(
+  state: BudgetState,
+  displayCurrency: "USD" | "INR" = pricing.display_currency,
+): {
   daily_spend: number;
   monthly_spend: number;
   daily_limit: number;
@@ -103,18 +122,29 @@ export function getBudgetStatus(state: BudgetState): {
   monthly_ratio: number;
   near_limit: boolean;
   over_limit: boolean;
+  display_currency: "USD" | "INR";
+  daily_spend_inr: number;
+  monthly_spend_inr: number;
+  daily_limit_inr: number;
+  monthly_limit_inr: number;
 } {
   const reset = resetBudgetIfNeeded(state);
   const dailyRatio = reset.daily_spend / cfg.daily_limit_usd;
   const monthlyRatio = reset.monthly_spend / cfg.monthly_limit_usd;
+  const rate = pricing.usd_to_inr_rate;
   return {
-    daily_spend: reset.daily_spend,
-    monthly_spend: reset.monthly_spend,
-    daily_limit: cfg.daily_limit_usd,
-    monthly_limit: cfg.monthly_limit_usd,
+    daily_spend: displayCurrency === "USD" ? reset.daily_spend : reset.daily_spend * rate,
+    monthly_spend: displayCurrency === "USD" ? reset.monthly_spend : reset.monthly_spend * rate,
+    daily_limit: displayCurrency === "USD" ? cfg.daily_limit_usd : cfg.daily_limit_usd * rate,
+    monthly_limit: displayCurrency === "USD" ? cfg.monthly_limit_usd : cfg.monthly_limit_usd * rate,
     daily_ratio: dailyRatio,
     monthly_ratio: monthlyRatio,
     near_limit: Math.max(dailyRatio, monthlyRatio) >= cfg.near_limit_threshold,
     over_limit: dailyRatio >= 1 || monthlyRatio >= 1,
+    display_currency: displayCurrency,
+    daily_spend_inr: reset.daily_spend * rate,
+    monthly_spend_inr: reset.monthly_spend * rate,
+    daily_limit_inr: cfg.daily_limit_usd * rate,
+    monthly_limit_inr: cfg.monthly_limit_usd * rate,
   };
 }

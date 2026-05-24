@@ -1,6 +1,7 @@
 import { classify, type CompletionRunner } from "./classifier.js";
 import { decideRoute } from "./router.js";
 import { applyTimeBasedWeights } from "./time-based.js";
+import { applyIndiaPeakWeights } from "./ist-peak.js";
 import type { Catalog, ClassifierResult, RouteDecision, TraitWeights } from "./types.js";
 import type { ScoringContext } from "./scorer.js";
 
@@ -61,7 +62,7 @@ export async function runRouterPipeline(input: PipelineInput): Promise<PipelineR
 
   const timeAdjustedClassifier: ClassifierResult = {
     ...classifier,
-    weights: applyTimeBasedWeights(classifier.weights),
+    weights: applyTimeBasedWeights(applyIndiaPeakWeights(classifier.weights)),
   };
 
   const decision = decideRoute({
