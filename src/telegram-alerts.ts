@@ -3,6 +3,7 @@
  *
  * Sends health drop alerts to a Telegram chat when model health falls below
  * threshold. Rate-limited to prevent spam (1 alert per model per window).
+ * Includes retry with exponential backoff and circuit breaker.
  *
  * Configure via env vars:
  *   BRAMHASHIV_TELEGRAM_BOT_TOKEN=...   (BotFather token)
@@ -16,6 +17,10 @@ interface SentEntry {
   timestamp: number;
 }
 
+const sentTracker = new Map<string, SentEntry>();
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY = 2000; // 2s base delay
+
 /** Per-model rate limiter. Clears entries older than rate_limit_ms. */
 function recentSends(): Map<string, SentEntry> {
   const now = Date.now();
@@ -26,8 +31,6 @@ function recentSends(): Map<string, SentEntry> {
   }
   return sentTracker;
 }
-
-const sentTracker = new Map<string, SentEntry>();
 
 /** Returns true if we sent an alert for this model within the rate-limit window. */
 export function alreadySentRecently(modelId: string): boolean {
@@ -41,26 +44,58 @@ export function markSent(modelId: string): void {
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 
-/** Send a message via Telegram Bot API. Errors are non-fatal. */
+// Circuit breaker state
+let circuitOpen = false;
+let circuitOpenUntil = 0;
+
+/** Send a message via Telegram Bot API with retry and circuit breaker. */
 export async function sendTelegramAlert(message: string): Promise<void> {
   const token = alerts.telegram_bot_token;
   const chatId = alerts.telegram_chat_id;
 
   if (!token || !chatId) return;
 
+  // Check circuit breaker
+  if (circuitOpen && Date.now() < circuitOpenUntil) {
+    return;
+  }
+  if (circuitOpen) {
+    circuitOpen = false; // half-open: try again
+  }
+
   const url = `${TELEGRAM_API}${token}/sendMessage`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
-    });
-    if (!res.ok) {
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
+      });
+      if (res.ok) {
+        circuitOpen = false;
+        return;
+      }
       const body = await res.text().catch(() => "");
+
+      // 429 = rate limited, 5xx = server error — open circuit
+      if (res.status === 429 || res.status >= 500) {
+        circuitOpen = true;
+        circuitOpenUntil = Date.now() + 60_000; // 1 minute cooldown
+        console.error(`[bramhashiv] telegram circuit breaker opened (${res.status})`);
+        return;
+      }
+
       console.error(`[bramhashiv] telegram alert failed: ${res.status} ${body}`);
+      if (res.status < 500) return; // client errors don't retry
+    } catch (err) {
+      console.error(`[bramhashiv] telegram alert error (attempt ${attempt + 1}): ${err}`);
     }
-  } catch (err) {
-    console.error(`[bramhashiv] telegram alert error: ${err}`);
+
+    if (attempt < MAX_RETRIES - 1) {
+      const delay = RETRY_BASE_DELAY * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
 }
 

@@ -2,7 +2,8 @@ import { TRAIT_NAMES, type Catalog, type CustomTrait, type ModelEntry, type Rank
 import { getHealthPenalty } from "./health-monitor.js";
 import { getRegenerationPenalty } from "./regeneration-tracker.js";
 import { getAdjustmentScore } from "./learning.js";
-import { getBudgetPenalty, estimateTaskCost } from "./budget.js";
+import { getBudgetPenalty } from "./budget.js";
+import { getContextPenalty } from "./context-pressure.js";
 import { latencySlo } from "./config.js";
 import type { HealthRecord, RegenerationRecord, ScoreAdjustment, TraitBreakdown, ModelScoreExplanation, BudgetState } from "./types.js";
 
@@ -16,6 +17,11 @@ export interface ScoringContext {
   budgetState?: BudgetState;
   /** Custom trait weights from the classifier (key = trait name, value = 0..1). */
   customTraitWeights?: Record<string, number>;
+  /** Multi-turn affinity: bonus for the currently-active model. */
+  affinityModelId?: string;
+  affinityBonus?: number;
+  /** Estimated conversation tokens for context pressure scoring. */
+  estimatedTokens?: number;
 }
 
 export interface ScoreResult {
@@ -104,13 +110,13 @@ export function scoreAndRank(
       score += weights[trait] * traitScore;
     }
 
-    // Custom traits: look up per-model score from catalog, fallback to 5.
+    // Custom traits: look up per-model score from catalog, fallback to 3.
     const customTraitBreakdowns: TraitBreakdown[] = [];
     for (const traitName of scoredCustomTraits) {
       const w = customTraitWeights[traitName]!;
       // Look up per-model score from the catalog custom trait definition
       const ctDef = catalogCustomTraits.find((ct) => ct.name === traitName);
-      const modelScore = ctDef?.scores?.[model.id] ?? 5;
+      const modelScore = ctDef?.scores?.[model.id] ?? 3;
       const contrib = w * modelScore;
       score += contrib;
       customTraitBreakdowns.push({
@@ -126,6 +132,7 @@ export function scoreAndRank(
     let regenPenalty = 0;
     let budgetPenalty = 0;
     let sloPenalty = 0;
+    let contextPenalty = 0;
 
     if (ctx) {
       const health = ctx.healthRecords?.find((h) => h.model_id === model.id);
@@ -142,8 +149,7 @@ export function scoreAndRank(
       score *= (1 - regenPenalty);
 
       if (ctx.budgetState) {
-        const estimatedCost = estimateTaskCost(model);
-        budgetPenalty = getBudgetPenalty(ctx.budgetState, model, estimatedCost);
+        budgetPenalty = getBudgetPenalty(ctx.budgetState);
         score *= (1 - budgetPenalty);
       }
 
@@ -151,6 +157,18 @@ export function scoreAndRank(
       if (sloPenalty > 0) {
         score *= (1 - sloPenalty);
       }
+
+      if (ctx.estimatedTokens !== undefined) {
+        contextPenalty = getContextPenalty(model, ctx.estimatedTokens);
+        if (contextPenalty > 0) {
+          score *= (1 - contextPenalty);
+        }
+      }
+    }
+
+    // Multi-turn affinity bonus
+    if (ctx?.affinityModelId === model.id && ctx.affinityBonus && ctx.affinityBonus > 0) {
+      score += ctx.affinityBonus;
     }
 
     explanations.push({

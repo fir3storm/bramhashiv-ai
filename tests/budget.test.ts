@@ -59,15 +59,14 @@ describe("budget", () => {
     expect(reset.monthly_spend).toBe(0);
   });
 
-  test("estimateTaskCost with no cost fields returns 0", () => {
+  test("estimateTaskCost with no cost fields returns default", () => {
     const model = makeModel();
-    expect(estimateTaskCost(model)).toBe(0);
+    expect(estimateTaskCost(model)).toBe(0.001);
   });
 
-  test("estimateTaskCost calculates from input and output tokens", () => {
+  test("estimateTaskCost uses model cost_per_1k_input when no actual tokens", () => {
     const model = makeModel(0.01, 0.03);
-    // default 4000 input, 2000 output
-    expect(estimateTaskCost(model)).toBe(4 * 0.01 + 2 * 0.03);
+    expect(estimateTaskCost(model)).toBe(0.01);
   });
 
   test("estimateTaskCost uses custom token counts", () => {
@@ -89,36 +88,33 @@ describe("budget", () => {
 
   test("getBudgetPenalty returns 0 when under budget", () => {
     const state = createEmptyBudgetState();
-    const model = makeModel(0.01, 0.03);
-    const penalty = getBudgetPenalty(state, model, 1);
+    const penalty = getBudgetPenalty(state);
     expect(penalty).toBe(0);
   });
 
   test("getBudgetPenalty returns near-limit penalty when approaching daily limit", () => {
     const state = createEmptyBudgetState();
     state.daily_spend = 45; // near 50 default limit
-    const model = makeModel(0.01, 0.03);
-    const penalty = getBudgetPenalty(state, model, 1);
+    const penalty = getBudgetPenalty(state);
     expect(penalty).toBe(0.15);
   });
 
   test("getBudgetPenalty returns over-limit penalty when exceeding budget", () => {
     const state = createEmptyBudgetState();
     state.daily_spend = 60; // over 50 default limit
-    const model = makeModel(0.01, 0.03);
-    const penalty = getBudgetPenalty(state, model, 1);
+    const penalty = getBudgetPenalty(state);
     expect(penalty).toBe(0.5);
   });
 
-  test("getBudgetStatus returns correct ratios and flags", () => {
+  test("getBudgetStatus returns correct spend and flags", () => {
     const state = createEmptyBudgetState();
     state.daily_spend = 40;
     state.monthly_spend = 100;
     const status = getBudgetStatus(state);
     expect(status.daily_spend).toBe(40);
     expect(status.monthly_spend).toBe(100);
-    expect(status.daily_ratio).toBe(0.8);
-    expect(status.monthly_ratio).toBe(0.2);
+    expect(status.daily_limit).toBe(50);
+    expect(status.monthly_limit).toBe(500);
     expect(status.near_limit).toBe(true);
     expect(status.over_limit).toBe(false);
   });

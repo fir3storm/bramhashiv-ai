@@ -1,7 +1,7 @@
 import { TRAIT_NAMES, type Catalog, type ClassifierResult, type ModelEntry, type OverrideState, type RouteDecision, type TraitName, type RouteExplanation } from "./types.js";
 import { scoreAndRank, type ScoringContext } from "./scorer.js";
 import { abTesting } from "./config.js";
-import { isCriticalTask, buildEnsembleDecision } from "./ensemble.js";
+import { isCriticalTask, buildEnsembleFallback } from "./ensemble.js";
 
 const SAFE_DEFAULT_ID = "anthropic/claude-sonnet-4-6";
 
@@ -48,11 +48,12 @@ export function decideRoute(input: DecideRouteInput): RouteDecision {
         top_traits,
         classifier_weights: classifier.weights,
         classifier_fallback: classifier.fallback,
+        classifier_confidence: classifier.confidence,
         override_source: "user",
         unavailable_models,
       };
-      const ensemble = critical ? buildEnsembleDecision({ picked: pinned, top_traits, ranking, classifier, override_source: "user", explanation: routeExplanation }, ranking) : null;
-      return { picked: pinned, top_traits, ranking, classifier, override_source: "user", explanation: routeExplanation, ensemble_fallback: ensemble?.fallback };
+      const ensemble = critical ? buildEnsembleFallback(pinned, ranking) : undefined;
+      return { picked: pinned, top_traits, ranking, classifier, override_source: "user", explanation: routeExplanation, ensemble_fallback: ensemble };
     }
   }
 
@@ -71,12 +72,13 @@ export function decideRoute(input: DecideRouteInput): RouteDecision {
         top_traits,
         classifier_weights: classifier.weights,
         classifier_fallback: classifier.fallback,
+        classifier_confidence: classifier.confidence,
         override_source: "fallback",
         unavailable_models,
       };
       const base = { picked: second.model, top_traits, ranking, classifier, override_source: "fallback" as const, ab_test, explanation: routeExplanation };
-      const ensemble = critical ? buildEnsembleDecision(base, ranking) : null;
-      return { ...base, ensemble_fallback: ensemble?.fallback };
+      const ensemble = critical ? buildEnsembleFallback(second.model, ranking) : undefined;
+      return { ...base, ensemble_fallback: ensemble };
     }
   }
 
@@ -90,12 +92,13 @@ export function decideRoute(input: DecideRouteInput): RouteDecision {
         top_traits,
         classifier_weights: classifier.weights,
         classifier_fallback: classifier.fallback,
+        classifier_confidence: classifier.confidence,
         override_source,
         unavailable_models,
       };
       const base = { picked: candidate.model, top_traits, ranking, classifier, override_source, ab_test, explanation: routeExplanation };
-      const ensemble = critical ? buildEnsembleDecision(base, ranking) : null;
-      return { ...base, ensemble_fallback: ensemble?.fallback };
+      const ensemble = critical ? buildEnsembleFallback(candidate.model, ranking) : undefined;
+      return { ...base, ensemble_fallback: ensemble };
     }
   }
 
@@ -108,11 +111,12 @@ export function decideRoute(input: DecideRouteInput): RouteDecision {
     top_traits,
     classifier_weights: classifier.weights,
     classifier_fallback: classifier.fallback,
+    classifier_confidence: classifier.confidence,
     override_source: "fallback",
     unavailable_exhausted: true,
     unavailable_models,
   };
   const base = { picked: safe, top_traits, ranking, classifier, override_source: "fallback" as const, unavailable_exhausted: true, ab_test, explanation: routeExplanation };
-  const ensemble = critical ? buildEnsembleDecision(base, ranking) : null;
-  return { ...base, ensemble_fallback: ensemble?.fallback };
+  const ensemble = critical ? buildEnsembleFallback(safe, ranking) : undefined;
+  return { ...base, ensemble_fallback: ensemble };
 }

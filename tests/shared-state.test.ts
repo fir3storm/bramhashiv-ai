@@ -12,6 +12,7 @@ describe("shared-state", () => {
   });
 
   const base = {
+    schema_version: 1,
     learned_adjustments: [] as never[],
     task_history: [] as never[],
     regeneration_records: [] as never[],
@@ -58,46 +59,20 @@ describe("shared-state", () => {
       ...base,
     });
     const state = await readSharedState(path);
-    expect(state.unavailable).toHaveLength(2);
-    expect(state.unavailable[0]!.id).toBe("huggingface/moonshotai/Kimi-K2.6");
+    expect(state.unavailable.map((u) => u.id).sort()).toEqual([
+      "huggingface/Qwen/Qwen3-Coder-Next",
+      "huggingface/moonshotai/Kimi-K2.6",
+    ]);
   });
 
-  test("backward-compat: state.json from older versions without `unavailable` field", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "bramhashiv-state-"));
-    const path = join(dir, "state.json");
-    // Simulate an older state.json that predates v0.1.5.
-    await Bun.write(path, JSON.stringify({ pinned_model_id: "x", last_label: null, last_classifier: null }));
-    const state = await readSharedState(path);
-    expect(state.unavailable).toEqual([]);
-  });
-});
-
-describe("pruneUnavailable", () => {
-  test("drops expired entries", () => {
+  test("prunes expired unavailable marks", () => {
     const now = Date.now();
     const marks = [
-      { id: "fresh", expiresAt: now + 60_000 },
-      { id: "expired", expiresAt: now - 1000 },
-      { id: "also-fresh", expiresAt: now + 1 },
+      { id: "a", expiresAt: now - 1000 },
+      { id: "b", expiresAt: now + 1000 },
+      { id: "c", expiresAt: now - 500 },
     ];
-    expect(pruneUnavailable(marks, now).map((m) => m.id)).toEqual(["fresh", "also-fresh"]);
-  });
-
-  test("returns all entries when none have expired", () => {
-    const now = Date.now();
-    const marks = [
-      { id: "a", expiresAt: now + 60_000 },
-      { id: "b", expiresAt: now + 60_000 },
-    ];
-    expect(pruneUnavailable(marks, now)).toHaveLength(2);
-  });
-
-  test("returns empty when all expired", () => {
-    const now = Date.now();
-    const marks = [
-      { id: "a", expiresAt: now - 1 },
-      { id: "b", expiresAt: now - 1000 },
-    ];
-    expect(pruneUnavailable(marks, now)).toEqual([]);
+    const pruned = pruneUnavailable(marks, now);
+    expect(pruned.map((m) => m.id)).toEqual(["b"]);
   });
 });

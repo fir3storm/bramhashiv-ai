@@ -38,7 +38,15 @@ export function updateAdjustments(
   outcome: TaskOutcome,
 ): ScoreAdjustment[] {
   const deltas = traitDeltasForOutcome(outcome);
-  const result = adjustments.map((a) => ({ ...a, delta: a.delta * cfg.decay }));
+  const now = Date.now();
+
+  // Apply time-based decay: older adjustments decay more
+  const result = adjustments.map((a) => {
+    const ageMs = now - (a.last_updated ?? now);
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+    const timeDecay = Math.pow(cfg.decay, ageDays);
+    return { ...a, delta: a.delta * timeDecay, last_updated: now };
+  });
 
   for (const trait of TRAIT_NAMES) {
     const delta = deltas[trait] ?? 0;
@@ -53,12 +61,14 @@ export function updateAdjustments(
         model_id: existing.model_id,
         trait: existing.trait,
         delta: clamp(existing.delta + delta * cfg.learning_rate, -cfg.cap, cfg.cap),
+        last_updated: now,
       };
     } else {
       result.push({
         model_id: outcome.model_id,
         trait: trait as TraitName,
         delta: clamp(delta * cfg.learning_rate, -cfg.cap, cfg.cap),
+        last_updated: now,
       });
     }
   }

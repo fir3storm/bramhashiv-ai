@@ -27,6 +27,20 @@ const FALLBACK_WEIGHTS: TraitWeights = {
   cost_efficiency: 0.5,
 };
 
+/**
+ * Calculate confidence score from trait weights.
+ * High variance among weights = high confidence (clear signal).
+ * Low variance = low confidence (ambiguous task).
+ */
+function calculateConfidence(weights: TraitWeights): number {
+  const values = TRAIT_NAMES.map((t) => weights[t]);
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  // Normalize: stdDev of 0 (all equal) → 0 confidence, stdDev of ~0.35 → 1.0 confidence
+  return Math.min(1, stdDev / 0.35);
+}
+
 function clamp01(n: number): number {
   if (Number.isNaN(n)) return 0;
   if (n < 0) return 0;
@@ -45,7 +59,7 @@ function stripFences(text: string): string {
   return trimmed;
 }
 
-function parseWeights(raw: string, catalog?: Catalog): TraitWeights | null {
+function parseWeights(raw: string, catalog?: Catalog): { base: TraitWeights; custom: Record<string, number> } | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stripFences(raw));
@@ -56,11 +70,11 @@ function parseWeights(raw: string, catalog?: Catalog): TraitWeights | null {
   const p = parsed as Record<string, unknown>;
 
   // Start with base traits
-  const result: Partial<TraitWeights> = {};
+  const base: Partial<TraitWeights> = {};
   for (const trait of TRAIT_NAMES) {
     const v = p[trait];
     if (typeof v !== "number") return null;
-    result[trait as TraitName] = clamp01(v);
+    base[trait as TraitName] = clamp01(v);
   }
 
   // Collect custom trait weights
@@ -74,7 +88,7 @@ function parseWeights(raw: string, catalog?: Catalog): TraitWeights | null {
     }
   }
 
-  return { base: result as TraitWeights, custom: customTraitWeights };
+  return { base: base as TraitWeights, custom: customTraitWeights };
 }
 
 export async function classify(
@@ -94,17 +108,18 @@ export async function classify(
       ),
     ]);
   } catch {
-    return { weights: { ...FALLBACK_WEIGHTS }, fallback: true };
+    return { weights: { ...FALLBACK_WEIGHTS }, fallback: true, confidence: 0 };
   }
 
   const parsed = parseWeights(raw, opts.catalog);
   if (!parsed) {
-    return { weights: { ...FALLBACK_WEIGHTS }, fallback: true, raw };
+    return { weights: { ...FALLBACK_WEIGHTS }, fallback: true, raw, confidence: 0 };
   }
   return {
     weights: parsed.base,
     customTraitWeights: Object.keys(parsed.custom).length > 0 ? parsed.custom : undefined,
     fallback: false,
     raw,
+    confidence: calculateConfidence(parsed.base),
   };
 }

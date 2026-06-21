@@ -3,7 +3,8 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { readSharedState, writeSharedState, type PluginState } from "./shared-state.js";
+import { CURRENT_SCHEMA_VERSION, type PluginState, migrateState } from "./shared-state.js";
+import { writeSharedState } from "./shared-state.js";
 import { STATE_PATH } from "./config-paths.js";
 import type { ScoreAdjustment, HealthRecord } from "./types.js";
 
@@ -13,12 +14,33 @@ export interface StateExport {
   state: PluginState;
 }
 
+function readStateSync(path: string): PluginState {
+  try {
+    const text = readFileSync(path, "utf8");
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    return migrateState(parsed);
+  } catch {
+    return {
+      schema_version: CURRENT_SCHEMA_VERSION,
+      pinned_model_id: null,
+      last_label: null,
+      last_classifier: null,
+      last_route_debug: null,
+      unavailable: [],
+      learned_adjustments: [],
+      task_history: [],
+      regeneration_records: [],
+      provider_health: [],
+    };
+  }
+}
+
 /**
  * Export the current routing state to a JSON file with metadata.
  * Safe to run on a timer or before risky operations.
  */
 export function exportStateSync(targetPath: string): void {
-  const state = readSharedState(STATE_PATH);
+  const state = readStateSync(STATE_PATH);
   const payload: StateExport = {
     version: "1.0",
     exported_at: new Date().toISOString(),
@@ -44,7 +66,7 @@ export function importStateSync(sourcePath: string, merge = false): void {
   }
 
   if (merge) {
-    const existing = readSharedState(STATE_PATH);
+    const existing = readStateSync(STATE_PATH);
     const merged = smartMerge(existing, raw.state);
     writeSharedState(STATE_PATH, merged);
   } else {
@@ -54,6 +76,7 @@ export function importStateSync(sourcePath: string, merge = false): void {
 
 function smartMerge(local: PluginState, incoming: PluginState): PluginState {
   return {
+    schema_version: local.schema_version,
     pinned_model_id: local.pinned_model_id, // never override user pin
     last_label: local.last_label ?? incoming.last_label,
     last_classifier: local.last_classifier ?? incoming.last_classifier,

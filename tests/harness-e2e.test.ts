@@ -111,6 +111,7 @@ describe("plugin server end-to-end harness", () => {
   test("state-file pin beats classifier", async () => {
     const paths = makeTempPaths();
     await writeSharedState(paths.statePath, {
+      schema_version: 1,
       pinned_model_id: "google/gemini-flash-latest",
       last_label: null,
       last_classifier: null,
@@ -142,6 +143,7 @@ describe("plugin server end-to-end harness", () => {
   test("state-file pin logs what auto-routing would have picked", async () => {
     const paths = makeTempPaths();
     await writeSharedState(paths.statePath, {
+      schema_version: 1,
       pinned_model_id: "google/gemini-flash-latest",
       last_label: null,
       last_classifier: null,

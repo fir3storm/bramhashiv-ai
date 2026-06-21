@@ -1,4 +1,5 @@
-import { readdirSync, statSync, readFileSync, existsSync } from "node:fs";
+import { readdir, stat, readFile, access } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, basename, extname } from "node:path";
 import type { WorkspaceContext } from "./types.js";
 import { workspace as cfg } from "./config.js";
@@ -57,15 +58,15 @@ const SKIP_DIRS = new Set([
   "target", "vendor", ".browser-sessions", ".code-review-graph",
 ]);
 
-function scanDir(
+async function scanDirAsync(
   dir: string,
   stats: { languages: Record<string, number>; total_files: number; has_tests: boolean },
   depth: number = 0,
-): void {
+): Promise<void> {
   if (depth > cfg.max_depth || stats.total_files >= cfg.max_files) return;
   let entries: string[];
   try {
-    entries = readdirSync(dir);
+    entries = await readdir(dir);
   } catch {
     return;
   }
@@ -74,13 +75,13 @@ function scanDir(
     const full = join(dir, entry);
     let st;
     try {
-      st = statSync(full);
+      st = await stat(full);
     } catch {
       continue;
     }
     if (st.isDirectory()) {
       if (SKIP_DIRS.has(entry)) continue;
-      scanDir(full, stats, depth + 1);
+      await scanDirAsync(full, stats, depth + 1);
     } else if (st.isFile()) {
       stats.total_files++;
       const ext = extname(entry).toLowerCase();
@@ -137,7 +138,8 @@ function buildSummary(ctx: {
 export function analyzeWorkspace(rootDir: string): WorkspaceContext {
   const repo_detected = existsSync(join(rootDir, ".git"));
   const stats = { languages: {} as Record<string, number>, total_files: 0, has_tests: false };
-  scanDir(rootDir, stats);
+  // Synchronous fallback for backward compatibility
+  scanDirSync(rootDir, stats);
   const { has_frontend, has_backend } = detectFrontendBackend(stats.languages);
   return {
     languages: stats.languages,
@@ -148,4 +150,59 @@ export function analyzeWorkspace(rootDir: string): WorkspaceContext {
     has_backend,
     summary: buildSummary({ ...stats, has_frontend, has_backend, repo_detected }),
   };
+}
+
+export async function analyzeWorkspaceAsync(rootDir: string): Promise<WorkspaceContext> {
+  const repo_detected = existsSync(join(rootDir, ".git"));
+  const stats = { languages: {} as Record<string, number>, total_files: 0, has_tests: false };
+  await scanDirAsync(rootDir, stats);
+  const { has_frontend, has_backend } = detectFrontendBackend(stats.languages);
+  return {
+    languages: stats.languages,
+    total_files: stats.total_files,
+    repo_detected,
+    has_tests: stats.has_tests,
+    has_frontend,
+    has_backend,
+    summary: buildSummary({ ...stats, has_frontend, has_backend, repo_detected }),
+  };
+}
+
+// Keep sync version for backward compatibility
+import { readdirSync, statSync } from "node:fs";
+
+function scanDirSync(
+  dir: string,
+  stats: { languages: Record<string, number>; total_files: number; has_tests: boolean },
+  depth: number = 0,
+): void {
+  if (depth > cfg.max_depth || stats.total_files >= cfg.max_files) return;
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (stats.total_files >= cfg.max_files) return;
+    const full = join(dir, entry);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      if (SKIP_DIRS.has(entry)) continue;
+      scanDirSync(full, stats, depth + 1);
+    } else if (st.isFile()) {
+      stats.total_files++;
+      const ext = extname(entry).toLowerCase();
+      const lang = LANGUAGE_MAP[ext] ?? LANGUAGE_MAP[basename(entry).toLowerCase()] ?? "Other";
+      stats.languages[lang] = (stats.languages[lang] ?? 0) + 1;
+      if (!stats.has_tests && TEST_PATTERNS.some((p) => p.test(entry) || p.test(full))) {
+        stats.has_tests = true;
+      }
+    }
+  }
 }

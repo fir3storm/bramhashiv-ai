@@ -4,7 +4,7 @@
  * using the secondary as a silent fallback.
  */
 
-import type { RouteDecision, RankedModel } from "./types.js";
+import type { RouteDecision, RankedModel, ModelEntry } from "./types.js";
 
 export interface EnsembleConfig {
   enabled: boolean;
@@ -15,10 +15,15 @@ export function isCriticalTask(weights: { deep_reasoning: number; tool_use_accur
   return weights.deep_reasoning + weights.tool_use_accuracy >= 1.4;
 }
 
-export function buildEnsembleDecision(
-  primary: RouteDecision,
+/**
+ * Build ensemble decision with fallback model.
+ * Returns the fallback model that should be used if the primary fails.
+ */
+export function buildEnsembleFallback(
+  primaryModel: ModelEntry,
   ranking: RankedModel[],
-): { primary: RouteDecision; fallback?: RankedModel } {
-  const fallback = ranking.find((r, i) => i > 0 && r.model.id !== primary.picked.id);
-  return { primary, fallback };
+): ModelEntry | undefined {
+  // Find the top-ranked model that's different from the primary
+  const fallback = ranking.find((r) => r.model.id !== primaryModel.id && r.model.provider !== primaryModel.provider);
+  return fallback?.model;
 }

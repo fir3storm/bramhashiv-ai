@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.4.0 — 2026-06-21
+
+Major observability, resilience, and routing intelligence upgrade. 10 new features across dashboarding, model lifecycle, cost tracking, alerting, and conflict resolution.
+
+### Added
+
+**Observability**
+- **Live Metrics Dashboard** (`src/dashboard.ts`). Local HTTP server with real-time web UI showing routing decisions, model health heatmap, spend trends, and trait distributions. Auto-refreshes every 5 seconds. Enable with `BRAMHASHIV_DASHBOARD_ENABLED=1` (default port 9876). Ring buffer stores last 100 routing events. API endpoints: `/api/metrics`, `/api/history`, `/api/models`, `/api/budget`.
+- **Streaming Cost Estimator** (`src/streaming-cost.ts`). Real-time cost tracking during model responses. Extrapolates total cost from partial streams. Supports USD and INR display via `BRAMHASHIV_DISPLAY_CURRENCY`. Integrates with budget guardrails for accurate spend tracking.
+
+**Routing Intelligence**
+- **Routing Rules DSL** (`src/routing-rules.ts`). YAML-based rule engine evaluated before the classifier. Rules support `task_contains`, `task_matches` (regex), `max_length`, `workspace_has` conditions. Actions: `prefer` (pin model), `boost` (increase trait weights), `exclude` (blacklist models). Configure via `BRAMHASHIV_RULES_PATH`.
+- **Routing Conflict Detection & Resolution** (`src/conflict-detection.ts`). Detects contradictory trait weights (e.g., `deep_reasoning > 0.7` AND `speed_priority > 0.7`). Three resolution strategies: `favor_a`, `favor_b`, `balance`. Auto-resolution uses workspace context (e.g., has_tests → favor reasoning). Configurable via `BRAMHASHIV_CONFLICT_RESOLUTION` (`auto`, `balance`, `log_only`).
+- **Multi-Turn Conversation Optimization** (`src/multiturn-affinity.ts`). Tracks model affinity across conversation turns. Applies a decaying bonus to the current model when trait drift is low, reducing context-switching overhead. Cosine distance measures trait drift. Configurable via `BRAMHASHIV_MULTITURN_*` env vars.
+- **Model Warmup Prediction** (`src/model-warmup.ts`). After each routing decision, predicts which model is likely needed next based on conversation follow-up patterns and semantic similarity. Emits warmup hints to debug log for providers with cold-start latency.
+
+**Model Lifecycle**
+- **Model Deprecation & Migration** (`src/model-deprecation.ts`). Detects deprecated/EOL models in catalog (optional `deprecated`, `successor`, `eol_date` fields). Auto-migrates learned adjustments and health records to successor models, scaling proportionally. Warns when models approach EOL. Configurable via `BRAMHASHIV_AUTO_MIGRATE` and `BRAMHASHIV_DEPRECATION_WARN_DAYS`.
+- **Automated Model Benchmarking** (`src/benchmarker.ts`). Periodic synthetic benchmarks (speed ping, code generation, reasoning) compare actual latency/success against catalog scores. Suggests score adjustments when real performance diverges. Optional auto-adjust mode. Configure via `BRAMHASHIV_BENCHMARK_*` env vars.
+
+**Scoring Enhancements**
+- **Context Window Pressure Scoring** (`src/context-pressure.ts`). Penalizes models whose context windows would be overwhelmed by long conversations. Estimates tokens from conversation history (~4 chars/token). Tiered penalties: 5% at 60% utilization, 15% at 80%, 30% at 95%. All 24 catalog models now include `context_window` metadata.
+
+**Alerting**
+- **Generic Webhook Alerting** (`src/webhook-alerts.ts`). Send alerts to any HTTP endpoint beyond Telegram. Template support for Slack, Discord, PagerDuty, and generic JSON. Per-webhook rate limiting and severity filtering. Configure via `BRAMHASHIV_WEBHOOKS_PATH` YAML file. Events: `health_drop`, `budget_warning`, `model_deprecated`, `routing_conflict`, `benchmark_complete`.
+
+### Changed
+- `src/scorer.ts` — `ScoringContext` gains `affinityModelId`, `affinityBonus`, `estimatedTokens` fields. Context pressure penalty and multi-turn affinity bonus integrated into scoring loop.
+- `src/pipeline.ts` — `PipelineInput` gains `routingRules` and `workspaceCtx`. Routing rules evaluated before classifier; conflict detection applied after classifier weights.
+- `src/plugin-server.ts` — Integrates all 10 features: dashboard server startup, warmup prediction, conversation affinity tracking, routing rules loading, deprecation checks, webhook dispatch on health alerts, context token estimation, history buffer tracking.
+- `src/types.ts` — `ModelEntry` gains `context_window`, `deprecated`, `successor`, `eol_date` optional fields. 15+ new interfaces for all feature types.
+- `src/config.ts` — 10 new config sections: `warmup`, `routingRules`, `dashboard`, `multiturn`, `deprecation`, `benchmark`, `streamingCost`, `contextPressure`, `webhooks`, `conflictDetection`.
+- `config/default-catalog.yaml` — All 24 models annotated with `context_window` values (32K–2M tokens).
+
+### Tests
+- 10 new test files covering all features: `conflict-detection.test.ts`, `model-warmup.test.ts`, `routing-rules.test.ts`, `dashboard.test.ts`, `multiturn-affinity.test.ts`, `model-deprecation.test.ts`, `benchmarker.test.ts`, `streaming-cost.test.ts`, `context-pressure.test.ts`, `webhook-alerts.test.ts`.
+- Total: **404 pass / 0 fail / 1 skip** across 38 test files.
+
+---
+
 ## 0.3.0 — 2026-05-24
 
 Major intelligence and operational upgrade. 15 new features across trust, transparency, cost control, advanced routing, and team collaboration.

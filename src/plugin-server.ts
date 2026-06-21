@@ -13,6 +13,7 @@ import type {
   WorkspaceContext,
   RouteDebugSnapshot,
   BudgetState,
+  ClassifierResult,
 } from "./types.js";
 import { geminiFlashRunner } from "./gemini-runner.js";
 import { getGoogleApiKey, getAuthedProviders } from "./opencode-auth.js";
@@ -33,16 +34,27 @@ import { dbg } from "./debug.js";
 import { formatExplanationForDisplay } from "./explanation.js";
 import { recordSpend, estimateTaskCost, getBudgetStatus } from "./budget.js";
 import { detectIndiaContext, buildIndiaClassifierHint } from "./india-context.js";
+import { semanticSimilarity } from "./semantic-similarity.js";
 import {
   CATALOG_PATH,
   STATE_PATH,
   TELEMETRY_PATH,
   ensureUserCatalog,
 } from "./config-paths.js";
-import { alerts } from "./config.js";
+import { alerts, dashboard as dashboardConfig, routingRules, warmup as warmupConfig } from "./config.js";
+import { loadRoutingRules } from "./routing-rules.js";
+import { predictNextModel } from "./model-warmup.js";
+import { updateAffinity, computeAffinityBonus } from "./multiturn-affinity.js";
+import { estimateConversationTokens } from "./context-pressure.js";
+import { findDeprecatedModels, formatDeprecationWarning } from "./model-deprecation.js";
+import { loadWebhookConfigs, sendWebhook } from "./webhook-alerts.js";
+import { createHistoryBuffer, computeMetrics, buildHealthSnapshots, createDashboardServer } from "./dashboard.js";
+import type { ConversationAffinity, WarmupHint, RoutingHistoryEntry, RoutingRule, WebhookConfig } from "./types.js";
+
+const CLASSIFIER_CACHE_THRESHOLD = 0.85;
 
 /** Handles health alert: logs to console and sends Telegram if configured. */
-async function handleHealthAlert(record: HealthRecord): Promise<void> {
+async function handleHealthAlert(record: HealthRecord, webhookCfgs: WebhookConfig[] = []): Promise<void> {
   const alert = checkHealthAlert(record);
   if (!alert) return;
   console.warn(alert);
@@ -53,6 +65,19 @@ async function handleHealthAlert(record: HealthRecord): Promise<void> {
     markSent(record.model_id);
     // Fire-and-forget; non-fatal if it fails
     sendTelegramAlert(msg).catch(() => {});
+  }
+
+  // Webhooks (Feature #7): fire matching webhooks for health_drop events
+  for (const cfg of webhookCfgs) {
+    sendWebhook(cfg, {
+      event: "health_drop",
+      severity: record.health_score < 0.3 ? "critical" : "warning",
+      message: alert,
+      model_id: record.model_id,
+      data: { health_score: record.health_score },
+      timestamp: new Date().toISOString(),
+      source: "bramhashiv-ai",
+    }).catch(() => {});
   }
 }
 
@@ -90,7 +115,22 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
     let regenerationCount: number = 0;
     let latestDiffSize: number = 0;
     let budgetState: BudgetState | null = null;
+    let lastAbTest: boolean = false;
+    let lastTokenCounts: { input?: number; output?: number } | null = null;
     const conversationHistory: string[] = [];
+
+    // Classifier cache: stores last task text and its classification result
+    let cachedTaskText: string = "";
+    let cachedClassifier: ClassifierResult | null = null;
+
+    // New feature state
+    let conversationAffinity: ConversationAffinity | null = null;
+    let warmupHint: WarmupHint | null = null;
+    let routingRulesList: RoutingRule[] = [];
+    let webhookConfigs: WebhookConfig[] = [];
+    const dashboardStartTime = Date.now();
+    const historyBuffer = createHistoryBuffer(dashboardConfig.max_history);
+    let dashboardServer: { stop: () => void } | null = null;
 
     // ── Hydrate from state.json ────────────────────────────────────────────
     {
@@ -123,6 +163,54 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
       console.error("[bramhashiv] workspace analysis failed:", err);
     }
 
+    // ── Load routing rules (Feature #3) ────────────────────────────────────
+    if (routingRules.enabled) {
+      try {
+        routingRulesList = loadRoutingRules(routingRules.rules_path);
+        dbg("routing_rules", { loaded: routingRulesList.length });
+      } catch (err) {
+        console.error("[bramhashiv] failed to load routing rules:", err);
+      }
+    }
+
+    // ── Load webhook configs (Feature #7) ──────────────────────────────────
+    try {
+      webhookConfigs = loadWebhookConfigs("");
+      dbg("webhooks", { loaded: webhookConfigs.length });
+    } catch (err) {
+      console.error("[bramhashiv] failed to load webhook configs:", err);
+    }
+
+    // ── Check for deprecated models (Feature #4) ───────────────────────────
+    const deprecated = findDeprecatedModels(watcher.current());
+    if (deprecated.length > 0) {
+      for (const notice of deprecated) {
+        console.warn(formatDeprecationWarning(notice));
+      }
+    }
+
+    // ── Start dashboard server if enabled (Feature #1) ─────────────────────
+    if (dashboardConfig.enabled) {
+      try {
+        dashboardServer = createDashboardServer({
+          port: dashboardConfig.port,
+          getHistory: () => historyBuffer.getAll(),
+          getHealth: () => buildHealthSnapshots(healthRecords, computeUnavailable()),
+          getBudget: () => ({
+            daily_spend: budgetState?.daily_spend ?? 0,
+            monthly_spend: budgetState?.monthly_spend ?? 0,
+            daily_limit: 0,
+            monthly_limit: 0,
+            near_limit: false,
+            over_limit: false,
+          }),
+          getMetrics: () => computeMetrics(historyBuffer.getAll(), dashboardStartTime),
+        });
+      } catch (err) {
+        console.error("[bramhashiv] failed to start dashboard:", err);
+      }
+    }
+
     function computeUnavailable(): Set<string> {
       const out = new Set<string>();
       const liveMarks = pruneUnavailable(errorMarks);
@@ -145,6 +233,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
       routeDebug?: RouteDebugSnapshot,
     ) {
       const toWrite = {
+        schema_version: 1,
         pinned_model_id: state.pinned_model_id,
         last_label: label ?? state.last_label,
         last_classifier: classifier ?? state.last_classifier,
@@ -222,12 +311,19 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
           }
 
           // ── Build scoring context ──────────────────────────────────────
+          const estimatedTokens = estimateConversationTokens(conversationHistory, text);
           const scoringCtx = {
             healthRecords,
             regenerationRecords,
             adjustments: learnedAdjustments,
             taskExcerpt: text.slice(0, 120),
             budgetState: budgetState ?? undefined,
+            affinityModelId: conversationAffinity?.model_id,
+            affinityBonus: conversationAffinity ? computeAffinityBonus(conversationAffinity, {
+              long_context: 0.5, deep_reasoning: 0.5, tool_use_accuracy: 0.5,
+              speed_priority: 0.5, frontend_taste: 0.5, cost_efficiency: 0.5
+            }) : 0,
+            estimatedTokens,
           };
 
           conversationHistory.push(text);
@@ -245,7 +341,12 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             scoringCtx,
             conversationHistory: [...conversationHistory],
             indiaHint,
+            routingRules: routingRulesList,
+            workspaceCtx: workspaceCtx ?? undefined,
           });
+
+          // Track A/B test state for outcome recording
+          lastAbTest = decision.ab_test ?? false;
 
           const dryRun = process.env.BRAMHASHIV_DRY_RUN === "1";
           const parts = decision.picked.id.split("/");
@@ -278,6 +379,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             picked: decision.picked.id,
             label,
             classifierFallback: classifier.fallback,
+            classifierConfidence: classifier.confidence,
             classifierWeights: classifier.weights,
             top5: decision.ranking.slice(0, 5).map((r) => ({
               id: r.model.id,
@@ -286,6 +388,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             planComplex: plan?.is_complex ?? false,
             planSubtasks: plan?.subtasks.length ?? 0,
             ensembleFallback: decision.ensemble_fallback?.id ?? null,
+            abTest: decision.ab_test ?? false,
           });
 
           // ── Emit routing explanation if enabled ─────────────────────────
@@ -369,6 +472,41 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
             });
             dbg("planner.subtasks", { lines: planLines });
           }
+
+          // ── Feature #2: Warmup prediction ──────────────────────────────────
+          if (warmupConfig.enabled) {
+            const predictedHint = predictNextModel(
+              decision,
+              conversationHistory,
+              watcher.current()
+            );
+            warmupHint = predictedHint;
+            dbg("warmup", { hint: predictedHint });
+          }
+
+          // ── Feature #8: Update conversation affinity ───────────────────────
+          conversationAffinity = updateAffinity(
+            conversationAffinity,
+            decision.picked.id,
+            classifier.weights
+          );
+
+          // ── Feature #1: Track routing history for dashboard ────────────────
+          if (dashboardConfig.enabled) {
+            historyBuffer.push({
+              timestamp: Date.now(),
+              task_excerpt: text.slice(0, 80),
+              picked_model: decision.picked.id,
+              score: decision.ranking[0]?.score ?? 0,
+              top_traits: decision.top_traits,
+              was_fallback: decision.override_source === "fallback",
+              was_ab_test: decision.ab_test ?? false,
+            });
+          }
+
+          // Cache classifier result for similar future tasks
+          cachedTaskText = text;
+          cachedClassifier = classifier;
         } catch (err) {
           console.error("[bramhashiv] chat.message hook error:", err);
         }
@@ -376,6 +514,15 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
       event: async ({ event }) => {
         if (event.type === "session.diff") {
           latestDiffSize = extractSessionDiffSize(event.properties as Record<string, unknown>);
+        }
+
+        // Extract token counts from response for accurate budget tracking
+        if (event.type === "message.updated") {
+          const props = event.properties as Record<string, unknown> | undefined;
+          const tokens = props?.tokens as { input?: number; output?: number } | undefined;
+          if (tokens && (tokens.input || tokens.output)) {
+            lastTokenCounts = { input: tokens.input, output: tokens.output };
+          }
         }
 
         // ── Error tracking (existing) ─────────────────────────────────────
@@ -389,7 +536,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
                 const h = findOrCreateHealth(healthRecords, provider, lastRoutedModelId);
                 healthRecords = h.records;
                 healthRecords[h.index] = recordError(h.record);
-                await handleHealthAlert(healthRecords[h.index]!);
+                await handleHealthAlert(healthRecords[h.index]!, webhookConfigs);
               }
             }
 
@@ -428,6 +575,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
                 regeneration_count: regenerationCount,
                 diff_size: 0,
                 timestamp: new Date().toISOString(),
+                ab_test: lastAbTest,
               };
               await persistOutcome(outcome, "[bramhashiv] failed to persist failed outcome:");
               taskStartTime = 0;
@@ -474,6 +622,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               regeneration_count: regenerationCount,
               diff_size: extractDiffSize(props, latestDiffSize),
               timestamp: new Date().toISOString(),
+              ab_test: lastAbTest,
             };
             await persistOutcome(outcome, "[bramhashiv] failed to persist learned state:");
 
@@ -484,10 +633,12 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin {
               regenerationCount,
               taskHistorySize: taskHistory.length,
               adjustments: learnedAdjustments.length,
+              abTest: lastAbTest,
             });
 
             taskStartTime = 0;
             latestDiffSize = 0;
+            lastTokenCounts = null;
           }
         }
       },

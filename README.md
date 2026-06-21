@@ -34,7 +34,7 @@
 
 ## 📦 Scope
 
-**v0.3 (current):** 15-layer adaptive routing — trait-based routing + workspace-aware classification + closed-loop learning + task decomposition planner + regeneration intelligence + provider health monitoring + budget guardrails + semantic similarity + conversation-aware routing + dry-run mode + custom traits + proactive quota management + latency SLOs + time-based routing + team-synced learning + project-level catalog overrides + A/B testing + model performance alerts + state import/export. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
+**v0.4 (current):** 25-layer adaptive routing — everything in v0.3 + live metrics dashboard + routing rules DSL + conflict detection & resolution + multi-turn conversation optimization + model warmup prediction + model deprecation & migration + automated benchmarking + streaming cost estimator + context window pressure scoring + generic webhook alerting. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
 
 ---
 
@@ -352,9 +352,103 @@ BRAMHASHIV_AB_TEST_PCT=0            # % of traffic to route to #2 model
 # Team sync
 BRAMHASHIV_TEAM_STATE_PATH=         # path to shared state file
 
+# Dashboard
+BRAMHASHIV_DASHBOARD_ENABLED=0      # enable live metrics web UI
+BRAMHASHIV_DASHBOARD_PORT=9876      # dashboard server port
+BRAMHASHIV_DASHBOARD_MAX_HISTORY=100 # routing events to keep in memory
+
+# Routing Rules DSL
+BRAMHASHIV_RULES_ENABLED=1          # enable YAML routing rules
+BRAMHASHIV_RULES_PATH=              # path to .bramhashiv/rules.yaml
+
+# Conflict Detection
+BRAMHASHIV_CONFLICT_ENABLED=1       # detect contradictory trait weights
+BRAMHASHIV_CONFLICT_THRESHOLD=0.7   # both traits above this = conflict
+BRAMHASHIV_CONFLICT_RESOLUTION=auto # auto | balance | log_only
+
+# Multi-Turn Optimization
+BRAMHASHIV_MULTITURN_ENABLED=1      # prefer same model across turns
+BRAMHASHIV_MULTITURN_BASE_BONUS=0.1 # affinity bonus for current model
+BRAMHASHIV_MULTITURN_DRIFT_THRESHOLD=0.4 # max trait drift before switching
+BRAMHASHIV_MULTITURN_MAX_TURNS=10   # reset affinity after this many turns
+
+# Model Warmup
+BRAMHASHIV_WARMUP_ENABLED=1         # predict next model from conversation
+BRAMHASHIV_WARMUP_REUSE_THRESHOLD=0.6 # semantic similarity for reuse
+
+# Model Deprecation
+BRAMHASHIV_AUTO_MIGRATE=1           # auto-migrate scores to successor
+BRAMHASHIV_DEPRECATION_WARN_DAYS=30 # warn before EOL
+
+# Automated Benchmarking
+BRAMHASHIV_BENCHMARK_ENABLED=0      # run periodic synthetic benchmarks
+BRAMHASHIV_BENCHMARK_INTERVAL_HOURS=24 # hours between benchmarks
+BRAMHASHIV_BENCHMARK_AUTO_ADJUST=0  # auto-adjust catalog from benchmarks
+
+# Streaming Cost
+BRAMHASHIV_STREAMING_COST_ENABLED=1 # track real-time cost during responses
+BRAMHASHIV_STREAMING_COST_LABEL=1   # show cost in routing label
+
+# Context Window Pressure
+BRAMHASHIV_CONTEXT_PRESSURE_ENABLED=1 # penalize models near context limit
+BRAMHASHIV_CONTEXT_WARN=0.6         # 60% utilization = warning penalty
+BRAMHASHIV_CONTEXT_HIGH=0.8         # 80% utilization = high penalty
+BRAMHASHIV_CONTEXT_CRITICAL=0.95    # 95% utilization = critical penalty
+
+# Generic Webhooks
+BRAMHASHIV_WEBHOOKS_ENABLED=0       # enable Slack/Discord/PagerDuty alerts
+BRAMHASHIV_WEBHOOKS_PATH=           # path to .bramhashiv/webhooks.yaml
+
 # Debug / preview
 BRAMHASHIV_EXPLAIN=0                # append scoring breakdown to responses
 BRAMHASHIV_DRY_RUN=0                # preview chosen model without dispatching
+BRAMHASHIV_DEBUG=0                  # verbose stderr debug output
+```
+
+---
+
+## 🔧 Development
+
+```bash
+bun install
+bun test            # 216 unit + harness + golden-set tests
+bun run typecheck
+BRAMHASHIV_SMOKE=1 bun test tests/providers.smoke.test.ts   # real Gemini call
+```
+
+---
+
+## 🛣️ v2 Roadmap
+
+- 🤖 **Multi-turn orchestration** — executing planner sub-tasks sequentially with different models.
+- ❓ **Confidence prompts** — confirm with user when classifier is uncertain.
+- 🌐 **Shared catalog registry** — community-tuned configs for different tech stacks.
+- 📊 **Learning dashboard** — `/stats` command showing model performance over time.
+
+---
+
+## 👤 Author
+
+Made by **Abhirup Guha**.
+
+<p align="center">
+  <strong>🪔 Proudly created in 🇮🇳, by an Indian — open-sourced for the betterment of the AI future.</strong>
+</p>
+
+---
+
+## 🔒 Security
+
+**Your credentials never touch this repo.** All API keys, OAuth tokens, and session data live in your home directory — `~/.local/share/opencode/auth.json` and `~/.config/bramhashiv/`. Cloning this repo gives you zero credentials; you must auth your own providers via `opencode providers login`. See [`SECURITY.md`](./SECURITY.md) for the full threat model and a credential scan you can run against any clone.
+
+## 📜 License
+
+Licensed under the [**Apache License 2.0**](./LICENSE). Copyright © 2026 Abhirup Guha.
+
+<div align="center">
+  <sub>If this saved you time, ⭐ star it on <a href="https://github.com/fir3storm/bramhashiv-ai">GitHub</a>.</sub>
+</div>
+model without dispatching
 BRAMHASHIV_DEBUG=0                  # verbose stderr debug output
 ```
 

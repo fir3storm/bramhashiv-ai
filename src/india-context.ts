@@ -157,10 +157,6 @@ export function buildIndiaClassifierHint(signal: IndiaSignal): string {
     parts.push(`User is writing in ${signal.primaryScript} script — consider models with strong multilingual / Indic language support.`);
   }
 
-  if (signal.techStacks.length > 0) {
-    parts.push(`India tech stack detected: ${signal.techStacks.join(", ")}.`);
-  }
-
   if (signal.indianApis.length > 0) {
     parts.push(`India API integration: ${signal.indianApis.join(", ")}.`);
   }

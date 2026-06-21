@@ -12,7 +12,10 @@ import type {
 } from "./types.js";
 import { createEmptyBudgetState } from "./budget.js";
 
+export const CURRENT_SCHEMA_VERSION = 1;
+
 export interface PluginState {
+  schema_version: number;
   pinned_model_id: string | null;
   last_label: string | null;
   last_classifier: ClassifierResult | null;
@@ -29,6 +32,7 @@ export interface PluginState {
 export type SharedState = PluginState;
 
 export const EMPTY_STATE: PluginState = {
+  schema_version: CURRENT_SCHEMA_VERSION,
   pinned_model_id: null,
   last_label: null,
   last_classifier: null,
@@ -41,20 +45,35 @@ export const EMPTY_STATE: PluginState = {
   budget: createEmptyBudgetState(),
 };
 
+export function migrateState(parsed: Record<string, unknown>): PluginState {
+  const version = (parsed.schema_version as number) ?? 0;
+  const state = { ...parsed } as Record<string, unknown>;
+
+  // Migrate from v0 (no schema_version) to v1
+  if (version < 1) {
+    state.schema_version = 1;
+    // Future migrations go here as version increments
+  }
+
+  return state as unknown as PluginState;
+}
+
 export async function readSharedState(path: string): Promise<SharedState> {
   try {
     const text = await readFile(path, "utf8");
-    const parsed = JSON.parse(text) as Partial<SharedState>;
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const migrated = migrateState(parsed);
     return {
       ...EMPTY_STATE,
-      ...parsed,
-      last_route_debug: parsed.last_route_debug ?? null,
-      unavailable: Array.isArray(parsed.unavailable) ? parsed.unavailable : [],
-      learned_adjustments: Array.isArray(parsed.learned_adjustments) ? parsed.learned_adjustments : [],
-      task_history: Array.isArray(parsed.task_history) ? parsed.task_history : [],
-      regeneration_records: Array.isArray(parsed.regeneration_records) ? parsed.regeneration_records : [],
-      provider_health: Array.isArray(parsed.provider_health) ? parsed.provider_health : [],
-      budget: parsed.budget ?? createEmptyBudgetState(),
+      ...migrated,
+      schema_version: CURRENT_SCHEMA_VERSION,
+      last_route_debug: migrated.last_route_debug ?? null,
+      unavailable: Array.isArray(migrated.unavailable) ? migrated.unavailable : [],
+      learned_adjustments: Array.isArray(migrated.learned_adjustments) ? migrated.learned_adjustments : [],
+      task_history: Array.isArray(migrated.task_history) ? migrated.task_history : [],
+      regeneration_records: Array.isArray(migrated.regeneration_records) ? migrated.regeneration_records : [],
+      provider_health: Array.isArray(migrated.provider_health) ? migrated.provider_health : [],
+      budget: migrated.budget ?? createEmptyBudgetState(),
     };
   } catch {
     return { ...EMPTY_STATE, unavailable: [] };
@@ -64,7 +83,8 @@ export async function readSharedState(path: string): Promise<SharedState> {
 export async function writeSharedState(path: string, state: SharedState): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tmpPath, JSON.stringify(state, null, 2), "utf8");
+  const stateWithVersion = { ...state, schema_version: CURRENT_SCHEMA_VERSION };
+  await writeFile(tmpPath, JSON.stringify(stateWithVersion, null, 2), "utf8");
   try {
     await rename(tmpPath, path);
   } catch (err) {
