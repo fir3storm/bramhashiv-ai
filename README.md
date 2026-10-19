@@ -9,7 +9,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](./tsconfig.json)
-[![OpenCode](https://img.shields.io/badge/OpenCode-1.14.24-orange)](https://github.com/sst/opencode)
+[![OpenCode](https://img.shields.io/badge/OpenCode-2-orange)](https://github.com/anomalyco/opencode)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-FF9933?labelColor=138808)](#-author)
 
 *Classifies each coding task with Gemini Flash and routes it to the best-fit model from a 19-model catalog spanning OpenAI (GPT-5.x via ChatGPT OAuth), Google (Gemini), Anthropic (Claude), HuggingFace, and OpenRouter.*
@@ -34,7 +34,7 @@
 
 ## 📦 Scope
 
-**v0.4 (current):** 25-layer adaptive routing — everything in v0.3 + live metrics dashboard + routing rules DSL + conflict detection & resolution + multi-turn conversation optimization + model warmup prediction + model deprecation & migration + automated benchmarking + streaming cost estimator + context window pressure scoring + generic webhook alerting. Server plugin for OpenCode's `chat.message` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
+**v0.4 (current):** 25-layer adaptive routing — everything in v0.3 + live metrics dashboard + routing rules DSL + conflict detection & resolution + multi-turn conversation optimization + model warmup prediction + model deprecation & migration + automated benchmarking + streaming cost estimator + context window pressure scoring + generic webhook alerting. Server plugin for OpenCode 2's `prompt` hook, user-editable YAML catalog, env-var override, local telemetry, auto-filter of unauthed/depleted providers. All tunable via `BRAMHASHIV_*` env vars.
 
 ---
 
@@ -98,7 +98,7 @@ Then add to your OpenCode config at `~/.config/opencode/opencode.jsonc`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["bramhashiv"]
+  "plugins": ["bramhashiv"]
 }
 ```
 
@@ -115,8 +115,8 @@ Point OpenCode at your local clone:
 
 ```jsonc
 {
-  "plugin": [
-    "file:///absolute/path/to/bramhashiv-ai/src/plugin-server.ts"
+  "plugins": [
+    "file:///absolute/path/to/bramhashiv-ai"
   ]
 }
 ```

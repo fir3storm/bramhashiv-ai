@@ -31,7 +31,7 @@ export interface HardFilters {
 
 export interface ModelEntry {
   id: string;
-  provider: "anthropic" | "google" | "huggingface" | "openrouter" | "openai";
+  provider: string;
   scores: TraitScores;
   hard_filters?: HardFilters;
   /** Estimated cost per 1K input tokens in USD (optional, for budget tracking). */

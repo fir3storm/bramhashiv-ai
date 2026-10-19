@@ -39,8 +39,8 @@ function readStateSync(path: string): PluginState {
  * Export the current routing state to a JSON file with metadata.
  * Safe to run on a timer or before risky operations.
  */
-export function exportStateSync(targetPath: string): void {
-  const state = readStateSync(STATE_PATH);
+export function exportStateSync(targetPath: string, statePath: string = STATE_PATH): void {
+  const state = readStateSync(statePath);
   const payload: StateExport = {
     version: "1.0",
     exported_at: new Date().toISOString(),
@@ -55,7 +55,7 @@ export function exportStateSync(targetPath: string): void {
  * - merge=true: smart-merge learned_adjustments, provider_health, task_history,
  *   unavailable marks. Team adjustments dampened 50% so local learning dominates.
  */
-export function importStateSync(sourcePath: string, merge = false): void {
+export function importStateSync(sourcePath: string, merge = false, statePath: string = STATE_PATH): void {
   if (!existsSync(sourcePath)) {
     throw new Error(`Import file not found: ${sourcePath}`);
   }
@@ -66,11 +66,11 @@ export function importStateSync(sourcePath: string, merge = false): void {
   }
 
   if (merge) {
-    const existing = readStateSync(STATE_PATH);
+    const existing = readStateSync(statePath);
     const merged = smartMerge(existing, raw.state);
-    writeSharedState(STATE_PATH, merged);
+    writeSharedState(statePath, merged);
   } else {
-    writeSharedState(STATE_PATH, raw.state);
+    writeSharedState(statePath, raw.state);
   }
 }
 
