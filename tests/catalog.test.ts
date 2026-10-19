@@ -38,9 +38,10 @@ models:
     expect(() => parseCatalog(bad)).toThrow(/0..10/);
   });
 
-  test("throws on unknown provider", () => {
-    const bad = VALID_YAML.replace("provider: anthropic", "provider: martian");
-    expect(() => parseCatalog(bad)).toThrow(/provider/i);
+  test("allows unknown provider (passed through to switchModel)", () => {
+    const yaml = VALID_YAML.replace("provider: anthropic", "provider: martian");
+    const cat = parseCatalog(yaml);
+    expect(cat.models[0]!.provider).toBe("martian");
   });
 
   test("allows optional hard_filters", () => {

@@ -50,8 +50,8 @@ export function validateCatalog(cat: unknown): asserts cat is Catalog {
     if (!m || typeof m !== "object") throw new Error("model entry must be object");
     const entry = m as Record<string, unknown>;
     if (typeof entry.id !== "string") throw new Error("model.id must be string");
-    if (!ALLOWED_PROVIDERS.includes(entry.provider as typeof ALLOWED_PROVIDERS[number])) {
-      throw new Error(`invalid provider '${entry.provider}' for ${entry.id}`);
+    if (typeof entry.provider !== "string") {
+      throw new Error(`model ${entry.id}: provider must be a string`);
     }
     if (!entry.scores || typeof entry.scores !== "object") {
       throw new Error(`model ${entry.id}: 'scores' required`);

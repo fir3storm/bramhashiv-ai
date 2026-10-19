@@ -20,7 +20,7 @@ describe("state-io", () => {
       const dir = mkdtempSync(join(tmpdir(), "bramhashiv-stateio-"));
       const targetPath = join(dir, "export.json");
 
-      exportStateSync(targetPath);
+      exportStateSync(targetPath, join(dir, "state.json"));
       expect(existsSync(targetPath)).toBe(true);
     });
 
@@ -28,7 +28,7 @@ describe("state-io", () => {
       const dir = mkdtempSync(join(tmpdir(), "bramhashiv-stateio-"));
       const targetPath = join(dir, "export.json");
 
-      exportStateSync(targetPath);
+      exportStateSync(targetPath, join(dir, "state.json"));
       const raw = JSON.parse(require("node:fs").readFileSync(targetPath, "utf-8"));
       expect(raw.version).toBe("1.0");
       expect(raw.exported_at).toBeDefined();
@@ -69,9 +69,8 @@ describe("state-io", () => {
       };
       writeFileSync(exportPath, JSON.stringify(payload, null, 2), "utf-8");
 
-      // This will write to STATE_PATH which is the default path in config-paths
-      // We can't easily override it here, so just verify it doesn't throw on valid file
-      expect(() => importStateSync(exportPath, false)).not.toThrow();
+      // Write to an isolated temp state path so we don't touch the real config
+      expect(() => importStateSync(exportPath, false, statePath)).not.toThrow();
     });
 
     test("importStateSync with merge writes to state path", () => {
@@ -97,9 +96,8 @@ describe("state-io", () => {
       };
       writeFileSync(exportPath, JSON.stringify(payload, null, 2), "utf-8");
 
-      // importStateSync with merge=false writes to STATE_PATH
-      // STATE_PATH is a global constant; verify the import doesn't throw
-      expect(() => importStateSync(exportPath, false)).not.toThrow();
+      // importStateSync with merge=false writes to an isolated temp state path
+      expect(() => importStateSync(exportPath, false, join(dir, "state.json"))).not.toThrow();
     });
 
     test("throws on missing state object", () => {
