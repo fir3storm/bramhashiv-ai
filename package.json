@@ -10,12 +10,13 @@
     "type": "git",
     "url": "git+https://github.com/fir3storm/bramhashiv-ai.git"
   },
-  "main": "src/plugin-server.ts",
+  "main": "./index.ts",
   "exports": {
-    ".": "./src/plugin-server.ts",
+    ".": "./index.ts",
     "./server": "./src/plugin-server.ts"
   },
   "files": [
+    "index.ts",
     "src/",
     "config/",
     "README.md",

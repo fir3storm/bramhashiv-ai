@@ -285,18 +285,25 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
       async function markUnavailable(ids: string[], ttlMs: number, reason: string) {
         if (ids.length === 0 || ttlMs <= 0) return;
         const expiresAt = Date.now() + ttlMs;
-        const existing = new Set(errorMarks.map((m) => m.id));
-        let added = 0;
+        // Prune expired marks first so stale entries neither block re-marking
+        // nor skew the TTL comparison below.
+        errorMarks = pruneUnavailable(errorMarks);
+        const byId = new Map<string, UnavailableMark>(errorMarks.map((m) => [m.id, m]));
+        let changed = 0;
         for (const id of ids) {
-          if (existing.has(id)) continue;
-          errorMarks.push({ id, expiresAt });
-          existing.add(id);
-          added += 1;
+          const existing = byId.get(id);
+          // Longer TTL wins: a full-model mark must not be short-circuited by a
+          // brief retry mark, so we only replace an existing mark when the new
+          // `until` is strictly later.
+          if (existing && existing.expiresAt >= expiresAt) continue;
+          byId.set(id, { id, expiresAt });
+          changed += 1;
           console.error(
             `[bramhashiv] marking ${id} unavailable until ${new Date(expiresAt).toISOString()} (${reason})`,
           );
         }
-        if (added === 0) return;
+        if (changed === 0) return;
+        errorMarks = [...byId.values()];
         dbg("event.session.error", { errorName: reason, marked: ids, ttlMs });
         try {
           const state = await readSharedState(config.statePath);
@@ -357,7 +364,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
       }
 
       // ── Prompt hook (migrated from V1 "chat.message") ──────────────────────
-      await ctx.session.hook("prompt", async (event) => {
+      const promptHook = await ctx.session.hook("prompt", async (event) => {
         if (!claimPrompt(event.messageID)) return;
         let committed = false;
         try {
@@ -451,6 +458,10 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
           }
 
           sessionMemory.set(event.sessionID, { lastTaskText: text, lastModelId: decision.picked.id });
+          if (sessionMemory.size > 500) {
+            const oldestSession = sessionMemory.keys().next().value;
+            if (oldestSession !== undefined) sessionMemory.delete(oldestSession);
+          }
           const queue = pendingTurns.get(event.sessionID) ?? [];
           queue.push({
             messageID: event.messageID,
@@ -596,7 +607,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
         }
       });
 
-      await ctx.session.hook("retry", async (event) => {
+      const retryHook = await ctx.session.hook("retry", async (event) => {
         try {
           const modelId = `${event.model.providerID}/${event.model.id}`;
           // Short TTL: a retry may still succeed, so don't blacklist long-term.
@@ -606,7 +617,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
         }
       });
 
-      await ctx.session.hook("http.response", async (event) => {
+      const httpResponseHook = await ctx.session.hook("http.response", async (event) => {
         if (event.kind !== "primary") return;
         try {
           const headers = event.response.headers;
@@ -639,10 +650,6 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
                 const turn = pendingTurns.get(ev.data.sessionID)?.[0];
                 if (turn) {
                   turn.diffSize += editSize(ev.data);
-                  if (ev.data.finish === "stop" || ev.data.finish === "length") {
-                    const done = takeHead(ev.data.sessionID);
-                    if (done) await settleTurn(done, true);
-                  }
                 }
               }
 
@@ -653,6 +660,7 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
 
               if (ev.type === "session.execution.interrupted") {
                 pendingTurns.delete(ev.data.sessionID);
+                sessionMemory.delete(ev.data.sessionID);
               }
 
               if (ev.type === "session.execution.failed") {
@@ -662,12 +670,14 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
                 const failed = takeHead(sessionID);
                 if (failed) await settleTurn(failed, false);
                 pendingTurns.delete(sessionID);
+                sessionMemory.delete(sessionID);
               }
 
               if (ev.type === "session.execution.succeeded") {
                 const turns = pendingTurns.get(ev.data.sessionID) ?? [];
                 for (const turn of turns) await settleTurn(turn, true);
                 pendingTurns.delete(ev.data.sessionID);
+                sessionMemory.delete(ev.data.sessionID);
               }
             } catch (err) {
               console.error("[bramhashiv] event handler error:", err);
@@ -683,6 +693,9 @@ export function createServerPlugin(config: ServerPluginConfig): Plugin.Plugin {
       // ── Cleanup ──────────────────────────────────────────────────────────
       return () => {
         ac.abort();
+        promptHook.dispose().catch(() => {});
+        retryHook.dispose().catch(() => {});
+        httpResponseHook.dispose().catch(() => {});
         dashboardServer?.stop();
       };
     },
@@ -698,14 +711,39 @@ function resolveDefaultRunner(): CompletionRunner | null {
   return apiKey ? geminiFlashRunner({ apiKey }) : null;
 }
 
-type RawSessionError = { type?: string; message?: string; status?: number };
+type RawSessionError = {
+  type?: string;
+  message?: string;
+  status?: number;
+  response?: { body?: unknown };
+};
 
 function errorTokens(type: string | undefined): Set<string> {
   return new Set((type ?? "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
 }
 
-function classifyErrorName(type: string | undefined, status: number | undefined): string {
-  const tokens = errorTokens(type);
+/**
+ * Best-effort extraction of a provider's error code/type from `error.response.body`
+ * (e.g. OpenAI `{ error: { code: "rate_limit_exceeded" } }`, Anthropic
+ * `{ error: { type: "rate_limit_error" } }`). Returns undefined when absent.
+ */
+function bodyErrorName(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const err = (body as { error?: unknown }).error;
+  if (!err || typeof err !== "object") return undefined;
+  const e = err as { code?: unknown; type?: unknown };
+  if (typeof e.code === "string" && e.code.length > 0) return e.code;
+  if (typeof e.type === "string" && e.type.length > 0) return e.type;
+  return undefined;
+}
+
+function classifyErrorName(
+  type: string | undefined,
+  status: number | undefined,
+  body?: unknown,
+): string {
+  const bodyName = bodyErrorName(body);
+  const tokens = new Set([...errorTokens(type), ...errorTokens(bodyName)]);
   if (
     status === 401 ||
     status === 403 ||
@@ -721,12 +759,12 @@ function classifyErrorName(type: string | undefined, status: number | undefined)
   if (tokens.has("abort")) return "MessageAbortedError";
   if (tokens.has("overflow") || tokens.has("context")) return "ContextOverflowError";
   if (tokens.has("content") || tokens.has("filter")) return "ContentFilterError";
-  return type || "UnknownError";
+  return type || bodyName || "UnknownError";
 }
 
 function toSessionError(raw: RawSessionError, providerID: string | undefined): SessionErrorPayload {
   return {
-    name: classifyErrorName(raw.type, raw.status),
+    name: classifyErrorName(raw.type, raw.status, raw.response?.body),
     data: {
       providerID,
       statusCode: raw.status,

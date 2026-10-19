@@ -116,7 +116,7 @@ Point OpenCode at your local clone:
 ```jsonc
 {
   "plugins": [
-    "file:///absolute/path/to/bramhashiv-ai/src/plugin-server.ts"
+    "file:///absolute/path/to/bramhashiv-ai"
   ]
 }
 ```

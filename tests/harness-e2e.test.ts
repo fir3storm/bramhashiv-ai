@@ -516,6 +516,12 @@ describe("plugin server end-to-end harness", () => {
       files: ["src/router.ts"],
     });
 
+    // step.ended only accumulates diff/token data; the turn settles on execution completion.
+    const beforeSettle = await readSharedState(paths.statePath);
+    expect(beforeSettle.task_history).toEqual([]);
+
+    await harness.emitEvent("session.execution.succeeded", { sessionID: "sess-1" });
+
     const state = await readSharedState(paths.statePath);
     expect(state.task_history[0]?.success).toBe(true);
     expect(state.task_history[0]?.diff_size).toBe(250);
